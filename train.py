@@ -84,7 +84,7 @@ def main():
         utils.save_checkpoint(checkpoint)
 
         # check accuracy
-        checkpoint(val_loader, model, device = DEVICE)
+        utils.check_accuracy(val_loader, model, device = DEVICE)
 
 
 if __name__ == '__main__':
