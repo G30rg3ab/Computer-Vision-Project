@@ -173,6 +173,9 @@ class show():
         plt_.show()
 
 class utils():
+    def __init__(self):
+        pass
+    
     @staticmethod
     def save_checkpoint(state, filename = 'my_checkpoint.pth.tar'):
         print('=> Saving checkpoint')
@@ -237,4 +240,5 @@ class utils():
                 num_correct += (preds == y).sum().item()
                 num_pixels  += torch.numel(preds)  # total number of pixels
 
-        print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels}")
+        print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels * 100:.2f}")
+        model.train()
