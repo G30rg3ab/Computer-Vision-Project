@@ -1,7 +1,7 @@
 import albumentations as albu
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
-from model import UNET
+from models.unet_model import UNET
 import os
 
 # # Pytorch imports
@@ -11,8 +11,8 @@ import torch.optim as optim
 from torch import amp
 
 # Custom
-from segmentation import utils
-from segmentation import preprocessing
+from segmentation.utils import model_utils
+from segmentation.utils import preprocessing
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
@@ -64,7 +64,7 @@ def main():
     train_augmentation = preprocessing.get_training_augmentation()
 
     # Getting the loaders
-    train_loader, val_loader = utils.get_loaders(x_trainVal_dir,
+    train_loader, val_loader = model_utils.get_loaders(x_trainVal_dir,
                                                  y_trainVal_dir,
                                                  batch_size= BATCHSIZE,
                                                  transform= transform,
@@ -81,10 +81,10 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }
-        utils.save_checkpoint(checkpoint)
+        model_utils.save_checkpoint(checkpoint)
 
         # check accuracy
-        utils.check_accuracy(val_loader, model, device = DEVICE)
+        model_utils.check_accuracy(val_loader, model, device = DEVICE)
 
 
 if __name__ == '__main__':
