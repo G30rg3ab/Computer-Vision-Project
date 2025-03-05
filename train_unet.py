@@ -18,7 +18,7 @@ from segmentation.utils import preprocessing
 LEARNING_RATE = 1e-4
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 BATCHSIZE = 16
-NUM_EPOCHS = 3
+NUM_EPOCHS = 50
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = False

@@ -34,7 +34,7 @@ class CVDataset(BaseDataset):
             A set of preprocessing transforms (e.g., normalization, resizing) 
             applied to both images and masks after augmentation. Applied only if provided.
         '''
-        self.class_intensity_dict = {'background':0, 'dog':75, 'cat':38}
+        self.class_intensity_dict = {'background':0, 'cat':38, 'dog':75}
         
         # Setting full paths
         self.images_fps = images_fps
