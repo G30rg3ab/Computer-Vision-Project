@@ -122,9 +122,9 @@ def main():
         optimizer=optimizer,
         iou=mean_IoU,  # Final IoU score
         hyperparams=hyperparams,
-        filename="unet_model_trained.pth",
+        filename="unet_model_0.pth",
         s3_bucket=BucketConstants.bucket,  # Set S3 bucket (optional)
-        s3_key="unet_model_trained.pth"    # Set path inside S3 (optional)
+        s3_key="unet_model_0.pth"    # Set path inside S3 (optional)
     )
 
 if __name__ == '__main__':
