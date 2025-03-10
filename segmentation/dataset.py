@@ -66,3 +66,4 @@ class CVDataset(BaseDataset):
     
     def __len__(self):
         return len(self.images_fps)
+    

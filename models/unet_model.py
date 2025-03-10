@@ -48,7 +48,6 @@ class UNET(nn.Module):
             x = down(x)
             skip_connections.append(x)
             x = self.pool(x)
-
         x = self.bottleneck(x)
         # reversing
         skip_connections = skip_connections[::-1]

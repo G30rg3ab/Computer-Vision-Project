@@ -10,6 +10,8 @@ from albumentations.pytorch import ToTensorV2
 import torch
 from torch.utils.data import DataLoader
 from .dataset import CVDataset
+from torchmetrics.classification import JaccardIndex
+from tqdm import tqdm
 
 
 class preprocessing():
@@ -54,8 +56,9 @@ class preprocessing():
         which peforms augmentation during training.
         '''
         train_transform = [
+            albu.RandomCrop(256, 416, pad_if_needed=True, fill_mask=255),
             albu.HorizontalFlip(p=0.5),
-    
+            albu.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5),  # Random shift, scale, and rotation
             albu.OneOf([
                 albu.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=1),
                 albu.CLAHE(p=1),
@@ -66,6 +69,21 @@ class preprocessing():
             albu.GaussNoise(p=0.2),
         ]
         return albu.Compose(train_transform)
+    
+    @staticmethod
+    def get_validation_augmentation():
+        '''
+        This function returns an albumentations.Compose element
+        which performs augmentation for validation set. In particular, 
+        it adds padding to rezise to 1536 x 1536 to ensure 
+        image is div by 32 for UNet (unsure if we need this for 
+        other models at the moment)
+        '''
+        # Add sufficient padding to ensure image is divisible by 32
+        test_transform = [
+            albu.PadIfNeeded(min_height=1536, min_width=1536, always_apply=True, border_mode=0, fill_mask=255),
+        ]
+        return albu.Compose(test_transform)
     
     @ staticmethod
     def get_transforms():
@@ -78,9 +96,34 @@ class preprocessing():
         ), ToTensorV2()
         ])
         return transforms
-        
 
+
+    @staticmethod
+    def get_preprocessing(preprocessing_fn=None):
+        '''
+        Normalise the data and convert to a tensor. Use the 
+        preprocessing_fn to chain another preprocessing step if needed
+        '''
+        _transform = []
+        
+        # If you had a model-specific function (e.g., from segmentation_models_pytorch),
+        # you could add it here. We'll skip it for now.
+        if preprocessing_fn:
+            _transform.append(albu.Lambda(image=preprocessing_fn))
+        
+        #  Add your normalization step here. Example: scale to [0,1]
+        _transform.append(albu.Normalize(
+            mean=[0, 0, 0],         
+            std=[1, 1, 1],           
+            max_pixel_value=255.0
+        ))
+        
+        # Convert to PyTorch tensor (channels-first)
+        _transform.append(ToTensorV2())
+
+        return albu.Compose(_transform)
     
+        
 class show():
     @ staticmethod
     def colorise_mask(mask, palette):
@@ -133,8 +176,9 @@ class model_utils():
         trainVal_dir, 
         trainVal_maskdir,
         batch_size,
-        transform,
+        valid_augmentation,
         train_augmentation,
+        preprocessing_fn,
         num_workers = 4, 
         pin_memory = True
     ):
@@ -142,7 +186,7 @@ class model_utils():
         # Splitting relative path names into into training and validation
         x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(trainVal_dir, trainVal_maskdir, 0.2)
         # Initialising the data loaders
-        train_ds = CVDataset(x_train_fps, y_train_fps, augmentation = train_augmentation, preprocessing = transform)
+        train_ds = CVDataset(x_train_fps, y_train_fps, augmentation = train_augmentation, preprocessing = preprocessing_fn)
         train_loader = DataLoader(
             train_ds,
             batch_size= batch_size,
@@ -151,7 +195,7 @@ class model_utils():
             shuffle=True
         )
 
-        valid_ds = CVDataset(x_val_fps, y_val_fps, preprocessing = transform)
+        valid_ds = CVDataset(x_val_fps, y_val_fps, augmentation = valid_augmentation, preprocessing = preprocessing_fn)
         valid_loader = DataLoader(
             valid_ds,
             batch_size= batch_size,
@@ -161,6 +205,7 @@ class model_utils():
         )
 
         return train_loader, valid_loader
+    
     
     def check_accuracy(loader, model, device="cuda"):
         num_correct = 0
@@ -185,3 +230,24 @@ class model_utils():
         print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels * 100:.2f}")
         model.train()
 
+
+    def check_iou(loader, model, device = 'cuda'):
+        iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(device)
+        with torch.no_grad():
+            for x, y in loader: # x = image, y = mask
+                x = x.to(device)
+                y = y.to(device)
+
+                # Forward pass: model outputs logits of shape (N,num_classes, H, W)
+                preds = model(x)
+
+                # Convert logits to predicted class indices
+                preds = torch.argmax(preds, dim = 1)
+                # Cropping the predicted mask and the mask to the original image shape
+                # Updating for x,y in validation set
+                iou_metric.update(preds, y)
+
+        mean_iou = iou_metric.compute().item()
+        iou_metric.reset() # Resetting for next epoch
+        print(f"Mean IoU: {mean_iou:.4f}")
+        model.train()

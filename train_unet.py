@@ -35,7 +35,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
     loop = tqdm(loader)
 
     for batch_idx, (data, targets) in enumerate(loop):
-        data = data.to(device = DEVICE)
+        data = data.to(device = DEVICE,  dtype=torch.float32)
         targets = targets.long().unsqueeze(1).to(device = DEVICE)
 
         # forward
@@ -56,21 +56,24 @@ def train_fn(loader, model, optimizer, loss_fn, scaler):
 def main():
     model = UNET(in_channels=3, out_channels=3).to(DEVICE)
     # Defining the loss function we use in training
-    loss_fn = nn.CrossEntropyLoss(ignore_index=255)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=255) # Ignoring 255 in the mask (this is the white border)
     optimizer = optim.Adam(model.parameters(), lr = LEARNING_RATE)
 
     # Getting the transforms 
-    transform = preprocessing.get_transforms()
     train_augmentation = preprocessing.get_training_augmentation()
+    valid_augmentation = preprocessing.get_validation_augmentation()
+    # For normalising image data (mask will remain unchanged), and converting to tensor
+    preprocess_fn = preprocessing.get_preprocessing(preprocessing_fn=None) 
 
     # Getting the loaders
     train_loader, val_loader = model_utils.get_loaders(x_trainVal_dir,
-                                                 y_trainVal_dir,
-                                                 batch_size= BATCHSIZE,
-                                                 transform= transform,
-                                                 train_augmentation=train_augmentation, 
-                                                 num_workers=NUM_WORKERS,
-                                                 pin_memory=PIN_MEMORY)
+                                                y_trainVal_dir,
+                                                 batch_size = BATCHSIZE,
+                                                 train_augmentation = train_augmentation, 
+                                                 valid_augmentation = valid_augmentation,
+                                                 preprocessing_fn = preprocess_fn,
+                                                 num_workers = NUM_WORKERS,
+                                                 pin_memory = PIN_MEMORY)
 
     scaler = amp.GradScaler()
     for epoc in range(NUM_EPOCHS):
@@ -85,6 +88,7 @@ def main():
 
         # check accuracy
         model_utils.check_accuracy(val_loader, model, device = DEVICE)
+        model_utils.check_iou(val_loader, model, device=DEVICE)
 
 
 if __name__ == '__main__':
