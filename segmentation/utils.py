@@ -82,6 +82,7 @@ class preprocessing():
         # Add sufficient padding to ensure image is divisible by 32
         test_transform = [
             albu.PadIfNeeded(min_height=768, min_width=768, border_mode=0, fill_mask=255),
+            albu.Resize(768, 768) # Incase 768 x 768 is not enough
         ]
         return albu.Compose(test_transform)
     
