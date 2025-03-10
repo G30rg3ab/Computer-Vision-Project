@@ -11,16 +11,17 @@ import torch.optim as optim
 from torch import amp
 
 # Custom
-from segmentation.utils import model_utils
+from segmentation.utils import model_utils, ModelEval
 from segmentation.utils import preprocessing
 from segmentation.dataset import CVDataset
 from torch.utils.data import DataLoader
+from segmentation.constants import BucketConstants
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-BATCHSIZE = 8
-NUM_EPOCHS = 50
+BATCHSIZE = 1
+NUM_EPOCHS = 1
 NUM_WORKERS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
@@ -31,6 +32,14 @@ x_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/color')
 y_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/label')
 # Splitting relative path names into into training and validation
 x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(x_trainVal_dir, y_trainVal_dir, 0.2)
+
+hyperparams={
+    "learning_rate": LEARNING_RATE,
+    "batch_size": BATCHSIZE,
+    "epochs": NUM_EPOCHS,
+    "model_arch": "UNet",
+    "augmentation": "horizontal_flip, random_crop",
+}
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
     '''
@@ -70,11 +79,17 @@ def main():
     preprocess_fn = preprocessing.get_preprocessing(preprocessing_fn=None)
 
     # Initialising the data loaders
-    train_ds = CVDataset(x_train_fps, y_train_fps, augmentation = train_augmentation, preprocessing = preprocess_fn, apply_augmentations_to_mask=True)
+    train_ds = CVDataset(x_train_fps[:5], y_train_fps[:5], augmentation = train_augmentation, preprocessing = preprocess_fn)
     train_loader = DataLoader(train_ds,batch_size= BATCHSIZE,num_workers=NUM_WORKERS,pin_memory=PIN_MEMORY,shuffle=True)
 
     # Validation data set
-    valid_ds = CVDataset(x_val_fps, y_val_fps, augmentation = valid_augmentation, preprocessing = preprocess_fn, apply_augmentations_to_mask = False)
+    # At the moment, not using processed mask for the validation set at all
+    # Only interested in the resized/normalised image to make prediction
+    # 1. Normalise/resize image
+    # 2. Make prediction with image from 1
+    # 3. Compare with the original ground truth mask
+    # 4. Compare predicted mask with original image
+    valid_ds = CVDataset(x_val_fps[:2], y_val_fps[:2], augmentation = valid_augmentation, preprocessing = preprocess_fn)
 
     scaler = amp.GradScaler()
     for epoc in range(NUM_EPOCHS):
@@ -92,8 +107,23 @@ def main():
             # check the Intersection over union score every 10 epochs
             model_utils.check_iou(valid_ds, model, device = DEVICE)
 
-    # When finshed print the iou on validation set
-    model_utils.check_iou(valid_ds, model, device=DEVICE)
+    print('Model training complete! Calculating performance metrics and saving')
+    # Computing the mean IoU score before saving
+    eval = ModelEval(valid_ds, model, device=DEVICE)
+    mean_IoU = eval.mean_IoU(progress_bar=False)
+    # Printing the score (this will also be in saved file)
+    print('The mean Intersection over union score is: ', mean_IoU)
+
+    # Save final model
+    model_utils.save_final_model(
+        model=model,
+        optimizer=optimizer,
+        iou=mean_IoU,  # Final IoU score
+        hyperparams=hyperparams,
+        filename="unet_model_trained.pth",
+        s3_bucket=BucketConstants.bucket,  # Set S3 bucket (optional)
+        s3_key="unet_model_trained.pth"    # Set path inside S3 (optional)
+    )
 
 if __name__ == '__main__':
     main()

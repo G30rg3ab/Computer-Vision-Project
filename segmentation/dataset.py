@@ -7,12 +7,15 @@ import albumentations as albu
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 
+# Custom imports
+from .constants import DataSetConstants
+
 
 class CVDataset(BaseDataset):
     '''
     Dataset class for Semantic Segmentation
     '''
-    def __init__(self, images_fps, masks_fps, augmentation = None, preprocessing = None, apply_augmentations_to_mask = True):
+    def __init__(self, images_fps, masks_fps, augmentation = None, preprocessing = None):
         '''
         Initialize the Dataset.
 
@@ -34,7 +37,7 @@ class CVDataset(BaseDataset):
             A set of preprocessing transforms (e.g., normalization, resizing) 
             applied to both images and masks after augmentation. Applied only if provided.
         '''
-        self.class_intensity_dict = {'background':0, 'cat':38, 'dog':75}
+        self.class_intensity_dict = DataSetConstants.class_intensitiy_dict
         
         # Setting full paths
         self.images_fps = images_fps
@@ -42,8 +45,6 @@ class CVDataset(BaseDataset):
 
         self.augmentation  = augmentation
         self.preprocessing = preprocessing
-        self.apply_aug_to_mask = apply_augmentations_to_mask
-
 
     def __getitem__(self, i):
         # Reading in the data
@@ -55,15 +56,10 @@ class CVDataset(BaseDataset):
         for idx, pixel_intensity in enumerate(self.class_intensity_dict.values()):
             mask[mask == pixel_intensity] = idx
 
-        # Storing original height and width
-        original_height, original_width = image.shape[:2]
        
-        if self.apply_aug_to_mask and self.augmentation:
+        if self.augmentation:
             sample = self.augmentation(image = image, mask = mask)
             image, mask = sample['image'], sample['mask']
-        else:
-            sample = self.augmentation(image = image)
-            image = sample['image']
 
         # appy preprocessing
         if self.preprocessing:
@@ -72,7 +68,17 @@ class CVDataset(BaseDataset):
 
         return image, mask
 
-
+    def original_mask(self, i):
+        mask = cv2.imread(self.masks_fps[i], 0)
+        # Replacing class_intensity_dict values with their index
+        for idx, pixel_intensity in enumerate(self.class_intensity_dict.values()):
+            mask[mask == pixel_intensity] = idx
+        return mask
+    
+    def original_image(self, i):
+        image = cv2.imread(self.images_fps[i])
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return image
     
     def __len__(self):
         return len(self.images_fps)

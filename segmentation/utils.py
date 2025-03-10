@@ -13,7 +13,12 @@ from .dataset import CVDataset
 from torchmetrics.classification import JaccardIndex
 from tqdm import tqdm
 import torchvision.transforms.functional as TF
+import matplotlib.patches as mpatches
+import matplotlib.colors as mcolors
+import boto3
 
+# Custom imports
+from .constants import VisualisationConstants
 
 class preprocessing():
 
@@ -137,13 +142,7 @@ class show():
     def visualiseData(**image):
         '''Plot images in one row'''
 
-        # Create a 256×3 array initialized to (0,0,0) for "unused" entries
-        palette = np.zeros((256, 3), dtype=np.uint8)
-        # Assign colors for your known labels
-        palette[0]   = [0,   0,   0]    # class 0 => black
-        palette[1]   = [255, 0,   0]    # class 1 => red
-        palette[2]   = [0,   255, 0]    # class 2 => green
-        palette[255] = [255, 255, 255]  # ignore index => white
+        palette = VisualisationConstants.palette
       
         n = len(image)
         plt_.figure(figsize = (10, 10))
@@ -163,6 +162,43 @@ class show():
 class model_utils():
     def __init__(self):
         pass
+
+    @staticmethod
+    def save_final_model(model, optimizer, iou, hyperparams, filename="final_model.pth", s3_bucket=None, s3_key=None):
+        """
+        Save the trained model along with metadata for experiment tracking.
+        Optionally upload the model to an S3 bucket.
+
+        Args:
+        - model (torch.nn.Module): Trained PyTorch model.
+        - optimizer (torch.optim.Optimizer): Optimizer state.
+        - iou (float): Final IoU score.
+        - hyperparams (dict): Dictionary of hyperparameters.
+        - filename (str): Local filename to save the model.
+        - s3_bucket (str, optional): S3 bucket name to upload the file.
+        - s3_key (str, optional): Key (path) to store the file in S3.
+        """
+        checkpoint = {
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "iou": iou,
+            "hyperparams": hyperparams,  # Dictionary containing learning rate, batch size, etc.
+        }
+
+        # **Step 1: Save model to file**
+        torch.save(checkpoint, filename)
+        print(f"=> Final model and metadata saved to {filename}")
+
+        # **Step 2: Ensure the file is reopened before uploading**
+        if s3_bucket and s3_key:
+            try:
+                s3_client = boto3.client("s3")
+                with open(filename, "rb") as f:  # ✅ Open file in binary read mode
+                    s3_client.upload_fileobj(f, s3_bucket, s3_key)
+
+                print(f"=> Model uploaded to S3: s3://{s3_bucket}/{s3_key}")
+            except Exception as e:
+                print(f"Failed to upload model to S3: {e}")
 
     @staticmethod
     def save_checkpoint(state, filename = 'my_checkpoint.pth.tar'):
@@ -185,7 +221,12 @@ class model_utils():
         num_workers = 4, 
         pin_memory = True
     ):
+        message = '''
+        Warning: This function is currently not being used for UNET. It returns a validation dataset loader
+        which is difficult to work with when batch size > 1, because the images must be resized before comparison
+        '''
 
+        print('Warning: Not using this function anymore because')
         # Splitting relative path names into into training and validation
         x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(trainVal_dir, trainVal_maskdir, 0.2)
         # Initialising the data loaders
@@ -239,14 +280,28 @@ class model_utils():
         model.train()
 
     def check_iou(testing_set, model, device = 'cuda'):
+        '''
+        Function to check iou score while training the model
+        will set training mode back when finished
+        '''
         metrics = ModelEval(testing_set, model, device)
         # Priting the IOU score
-        metrics.IntersectionOverUnion()
+        mean_iou = metrics.mean_IoU()
+        print(f"Mean IoU on original domain: {mean_iou:.4f}")
         # back to training
         model.train()
 
 class ModelEval():
     def __init__(self, dataset, model, device = 'cuda'):
+        '''
+        # Parameters
+            dataset: CVDataset
+                dataset with validation_augmentation and preprocessing function 
+            applied
+
+            model: Object(torch.nn.modules)
+                Model inherited from torch.nn.modules used to make predictions
+        '''
         self.dataset = dataset
         self.model = model
         self.device = device
@@ -254,36 +309,152 @@ class ModelEval():
     def predict(self, i):
         '''
         Function that uses dataset directly to make a prediction
-        the inverse resizing operations can be defined here 
+        the inverse resizing operations can be defined here and will
+        be used in the subsequent functions for evaluation purposes
         '''
         self.model.eval()
-        # Getting the ith image in the dataset
-        image, mask = self.dataset[i]
+        # Getting the ith image in the dataset, this has the scaling/resizing applied
+        image, _ = self.dataset[i]
         image = image.to(self.device)
-        # Getitng the size of the mask
-        H, W = mask.shape
+        # Getting the unprocessed mask
+        unprocessed_mask = self.dataset.original_mask(i)
+        # Getting the dimensions of the unprocessed mask
+        H, W = unprocessed_mask.shape
         # forward pass
         with torch.inference_mode():
-            pred_logits = self.model(image.unsqueeze(0))
+            pred_logits = self.model(image.unsqueeze(0)) # Getting the prediction for the preprocessed image
             pred_mask = torch.argmax(pred_logits, dim = 1)
-            mask_original_dimensions = TF.resize(pred_mask, (H, W), interpolation=TF.InterpolationMode.NEAREST)
-            self.prediction = mask_original_dimensions.squeeze(0)
-            self.ground_truth_mask = mask
-            return self.prediction, self.ground_truth_mask
+
+            # Resizing the predicted mask to the original dimensions
+            pred_original_dimensions = TF.resize(pred_mask, (H, W), interpolation=TF.InterpolationMode.NEAREST)
+            pred_original_dimensions = pred_original_dimensions.squeeze(0)
+
+            return pred_original_dimensions, torch.from_numpy(unprocessed_mask)
 
     def visualise(self):
         show.visualiseData(predicted_mask = self.prediction, 
                            ground_truth_mask = self.ground_truth_mask) 
 
-    def IntersectionOverUnion(self, progress_bar = False):
+    def mean_IoU(self, progress_bar = False):
         self.model.eval()
         iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
+        
         loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask, ground_truth = self.predict(i)
-            iou_metric.update(pred_mask.unsqueeze(0), ground_truth.unsqueeze(0))
+
+            # ✅ Ensure both tensors are long-type (integer labels)
+            pred_mask = pred_mask.to(dtype=torch.long)
+            ground_truth = ground_truth.to(dtype=torch.long)
+
+            # ✅ Ensure batch dimension (N=1)
+            pred_mask = pred_mask.unsqueeze(0)
+            ground_truth = ground_truth.unsqueeze(0)
+            iou_metric.update(pred_mask, ground_truth)
 
         mean_iou = iou_metric.compute().item()
         iou_metric.reset() # Resetting
-        print(f"Mean IoU on original domain: {mean_iou:.4f}")
+        return mean_iou
+      
+
+    def plot_prediction_overlay(self, i, alpha=0.5):
+        """
+        Plots the original image with the predicted segmentation mask overlaid.
+        Args:
+        - i (int): Index of the image in the dataset.
+        - alpha (float): Transparency level for the overlay (0 = only image, 1 = only mask).
+        """
+        # Getitng the predicted mask
+        pred_mask, ground_truth = self.predict(i)
+        # Convert mask to color
+        pred_mask = pred_mask.cpu().numpy()
+
+        # Getting the original image
+        image_original = self.dataset.original_image(i)
+
+        palette = VisualisationConstants.palette
+        class_colours = VisualisationConstants.class_colors # Dictionary of class index (0, 1, 2): colour
+
+        # Colouring the mask
+        coloured_mask = show.colorise_mask(pred_mask, palette=palette)
+
+        # Create overlay image
+        plt.figure(figsize=(10, 5))
+        plt.imshow(image_original, cmap='gray')
+        plt.imshow(coloured_mask, alpha=alpha)  # Overlay mask with transparency
+
+        # Create legend patches
+        legend_patches = [mpatches.Patch(color=color, label=label) for label, color in zip(["Background", "Cat", "Dog"], VisualisationConstants.class_colors.values())]
+        plt.legend(handles = legend_patches, loc = 'upper right')
+
+        plt.title(f"Prediction Overlay - Image")
+        plt.axis("off")
+        plt.show()
+
+    def image_fit_summary(self, i, alpha = 0.5):
+        '''
+        Do some plots and print metrics for single image
+        '''
+        self.plot_prediction_overlay(i, alpha=alpha)
+
+        ### Computing the IoU for this image ####
+        iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
+        pred_mask, ground_truth = self.predict(i)
+
+        # ✅ Ensure both tensors are long-type (integer labels)
+        pred_mask = pred_mask.to(dtype=torch.long)
+        ground_truth = ground_truth.to(dtype=torch.long)
+
+        # ✅ Ensure batch dimension (N=1)
+        pred_mask = pred_mask.unsqueeze(0)
+        ground_truth = ground_truth.unsqueeze(0)
+        iou_metric.update(pred_mask, ground_truth)
+        iou = iou_metric.compute().item()
+        iou_metric.reset() # Resetting
+        print(f"IoU on original domain: {iou:.4f}")
+
+    def load_model(self, checkpoint_path):
+        """
+        Loads a saved model checkpoint into the model.
+        Supports loading from local storage and S3.
+
+        Args:
+        - checkpoint_path (str): Local file path or S3 URI to the model checkpoint.
+
+        Returns:
+        - None: Updates the model in-place.
+        """
+        if checkpoint_path.startswith("s3://"):
+            print(f"=> Downloading model from {checkpoint_path}...")
+
+            # Extract S3 bucket and key
+            s3_client = boto3.client("s3")
+            bucket_name = checkpoint_path.split("/")[2]
+            s3_key = "/".join(checkpoint_path.split("/")[3:])
+
+            # Temporary local file path
+            local_checkpoint = "temp_model.pth"
+            
+            # Download model from S3
+            try:
+                s3_client.download_file(bucket_name, s3_key, local_checkpoint)
+                checkpoint_path = local_checkpoint  # Update path to local file
+                print(f"=> Model downloaded from S3 to {local_checkpoint}")
+            except Exception as e:
+                print(f" Failed to download model from S3: {e}")
+                return
+
+        print(f"=> Loading model from {checkpoint_path}")
+
+        # Load checkpoint
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        # Load model state dict
+        self.model.load_state_dict(checkpoint["state_dict"])
+        
+        print("=> Model successfully loaded!")
+
+        # Remove temp file if downloaded from S3
+        if checkpoint_path == "temp_model.pth":
+            os.remove(checkpoint_path)
