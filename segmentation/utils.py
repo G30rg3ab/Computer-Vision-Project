@@ -81,7 +81,7 @@ class preprocessing():
         '''
         # Add sufficient padding to ensure image is divisible by 32
         test_transform = [
-            albu.PadIfNeeded(min_height=1536, min_width=1536, always_apply=True, border_mode=0, fill_mask=255),
+            albu.PadIfNeeded(min_height=768, min_width=768, border_mode=0, fill_mask=255),
         ]
         return albu.Compose(test_transform)
     
@@ -232,9 +232,8 @@ class model_utils():
             iou_metric.reset() # Resetting for next epoch
             print(f"Mean IoU: {mean_iou:.4f}")
             print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels * 100:.2f}")
-            
-        model.train()
 
+        model.train()
 
     def check_iou(loader, model, device = 'cuda'):
         iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(device)
