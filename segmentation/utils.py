@@ -342,6 +342,7 @@ class ModelEval():
         loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
+            print('making prediction')
             pred_mask, ground_truth = self.predict(i)
             pred_mask = pred_mask.to(device=self.device)
             ground_truth = ground_truth.to(device=self.device)
