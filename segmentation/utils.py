@@ -273,7 +273,7 @@ class ModelEval():
 
     def visualise(self):
         show.visualiseData(predicted_mask = self.prediction, 
-                           ground_truth_mask = self.ground_truth_mask)
+                           ground_truth_mask = self.ground_truth_mask) 
 
     def IntersectionOverUnion(self, progress_bar = False):
         self.model.eval()
@@ -286,4 +286,4 @@ class ModelEval():
 
         mean_iou = iou_metric.compute().item()
         iou_metric.reset() # Resetting
-        print(f"Mean IoU: {mean_iou:.4f}")
+        print(f"Mean IoU on original domain: {mean_iou:.4f}")
