@@ -13,6 +13,8 @@ from torch import amp
 # Custom
 from segmentation.utils import model_utils
 from segmentation.utils import preprocessing
+from segmentation.dataset import CVDataset
+from torch.utils.data import DataLoader
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
@@ -27,6 +29,8 @@ x_test_dir = os.path.join(DATA_DIR, 'Test/color')
 y_test_dir = os.path.join(DATA_DIR, 'Test/label')
 x_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/color')
 y_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/label')
+# Splitting relative path names into into training and validation
+x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(x_trainVal_dir, y_trainVal_dir, 0.2)
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
     '''
@@ -63,17 +67,14 @@ def main():
     train_augmentation = preprocessing.get_training_augmentation()
     valid_augmentation = preprocessing.get_validation_augmentation()
     # For normalising image data (mask will remain unchanged), and converting to tensor
-    preprocess_fn = preprocessing.get_preprocessing(preprocessing_fn=None) 
+    preprocess_fn = preprocessing.get_preprocessing(preprocessing_fn=None)
 
-    # Getting the loaders
-    train_loader, val_loader = model_utils.get_loaders(x_trainVal_dir,
-                                                y_trainVal_dir,
-                                                 batch_size = BATCHSIZE,
-                                                 train_augmentation = train_augmentation, 
-                                                 valid_augmentation = valid_augmentation,
-                                                 preprocessing_fn = preprocess_fn,
-                                                 num_workers = NUM_WORKERS,
-                                                 pin_memory = PIN_MEMORY)
+    # Initialising the data loaders
+    train_ds = CVDataset(x_train_fps, y_train_fps, augmentation = train_augmentation, preprocessing = preprocess_fn, apply_augmentations_to_mask=True)
+    train_loader = DataLoader(train_ds,batch_size= BATCHSIZE,num_workers=NUM_WORKERS,pin_memory=PIN_MEMORY,shuffle=True)
+
+    # Validation data set
+    valid_ds = CVDataset(x_val_fps, y_val_fps, augmentation = valid_augmentation, preprocessing = preprocess_fn, apply_augmentations_to_mask = False)
 
     scaler = amp.GradScaler()
     for epoc in range(NUM_EPOCHS):
@@ -89,10 +90,10 @@ def main():
         # Checking every 10 epochs
         if (epoc % 10) == 0:
             # check the Intersection over union score every 10 epochs
-            model_utils.check_iou(val_loader, model, device = DEVICE)
+            model_utils.check_iou(valid_ds, model, device = DEVICE)
 
     # When finshed print the iou on validation set
-    model_utils.check_iou(val_loader, model, device=DEVICE)
+    model_utils.check_iou(valid_ds, model, device=DEVICE)
 
 if __name__ == '__main__':
     main()

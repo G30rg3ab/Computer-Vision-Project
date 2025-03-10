@@ -3,6 +3,8 @@
 
 This is a processed version of the OXFORD-IIIT PET Dataset dataset by Haocheng Yuan, the original authors are Omkar M Parkhi, Andrea Vedaldi, Andrew Zisserman and C. V. Jawahar. The dataset is used and can only be used for teaching purpose.
 
+Update 27-Feb-2025: Mis-labelled instances are filtered out.
+
 ## Contents
 --------
 - Dataset/**/color: RGB images of pets

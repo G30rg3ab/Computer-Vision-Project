@@ -86,7 +86,7 @@ class preprocessing():
             #albu.Resize(768, 768) # Incase 768 x 768 is not enough, probably should fix later in a better way
             albu.Resize(256, 416)
         ]
-        return albu.Compose(test_transform)
+        return albu.Compose(test_transform, is_check_shapes=False)
     
     @ staticmethod
     def get_transforms():
@@ -124,7 +124,7 @@ class preprocessing():
         # Convert to PyTorch tensor (channels-first)
         _transform.append(ToTensorV2())
 
-        return albu.Compose(_transform)
+        return albu.Compose(_transform, is_check_shapes=False)
     
         
 class show():
@@ -238,36 +238,52 @@ class model_utils():
 
         model.train()
 
-    @staticmethod
-    def predict(model, image):
-        model.eval()
+    def check_iou(testing_set, model, device = 'cuda'):
+        metrics = ModelEval(testing_set, model, device)
+        # Priting the IOU score
+        metrics.IntersectionOverUnion()
+        # back to training
+        model.train()
+
+class ModelEval():
+    def __init__(self, dataset, model, device = 'cuda'):
+        self.dataset = dataset
+        self.model = model
+        self.device = device
+
+    def predict(self, i):
+        '''
+        Function that uses dataset directly to make a prediction
+        the inverse resizing operations can be defined here 
+        '''
+        self.model.eval()
+        # Getting the ith image in the dataset
+        image, mask = self.dataset[i]
+        image = image.to(self.device)
+        # Getitng the size of the mask
+        H, W = mask.shape
+        # forward pass
         with torch.inference_mode():
-            # Adding an extra dimension to the image (batch size of 1)
-            image = image.unsqueeze(0)
-            pred_logits = (model(image))
-            pred_mask = torch.argmax(pred_logits, dim=1)
-            return pred_mask.squeeze(0)
-        
+            pred_logits = self.model(image.unsqueeze(0))
+            pred_mask = torch.argmax(pred_logits, dim = 1)
+            mask_original_dimensions = TF.resize(pred_mask, (H, W), interpolation=TF.InterpolationMode.NEAREST)
+            self.prediction = mask_original_dimensions.squeeze(0)
+            self.ground_truth_mask = mask
+            return self.prediction, self.ground_truth_mask
 
-    def check_iou(loader, model, device = 'cuda'):
-        iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(device)
-        with torch.no_grad():
-            for x, y, (H, W) in loader: # x = image, y = mask, original_dim = (H, W)
-                x = x.to(device)
-                y = y.to(device)
+    def visualise(self):
+        show.visualiseData(predicted_mask = self.prediction, 
+                           ground_truth_mask = self.ground_truth_mask)
 
-                # Forward pass: model outputs logits of shape (N, num_classes, H, W)
-                preds = model(x)
-
-                # Convert logits to predicted class indices
-                preds = torch.argmax(preds, dim = 1)
-                # Updating for x,y in validation set
-                # Resizing back to original dimensions
-                preds_resized = TF.resize(preds, (H, W), interpolation=TF.InterpolationMode.NEAREST)
-                mask_resized = TF.resize(y, (H, W), interpolation=TF.InterpolationMode.NEAREST)
-                iou_metric.update(preds_resized, mask_resized)
+    def IntersectionOverUnion(self, progress_bar = False):
+        self.model.eval()
+        iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
+        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        for i in loop:
+            # Getting the prediction
+            pred_mask, ground_truth = self.predict(i)
+            iou_metric.update(pred_mask.unsqueeze(0), ground_truth.unsqueeze(0))
 
         mean_iou = iou_metric.compute().item()
-        iou_metric.reset() # Resetting for next epoch
+        iou_metric.reset() # Resetting
         print(f"Mean IoU: {mean_iou:.4f}")
-        model.train()

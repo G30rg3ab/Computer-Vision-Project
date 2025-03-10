@@ -12,7 +12,7 @@ class CVDataset(BaseDataset):
     '''
     Dataset class for Semantic Segmentation
     '''
-    def __init__(self, images_fps, masks_fps, augmentation = None, preprocessing = None, return_original_dimensions = False):
+    def __init__(self, images_fps, masks_fps, augmentation = None, preprocessing = None, apply_augmentations_to_mask = True):
         '''
         Initialize the Dataset.
 
@@ -42,8 +42,8 @@ class CVDataset(BaseDataset):
 
         self.augmentation  = augmentation
         self.preprocessing = preprocessing
+        self.apply_aug_to_mask = apply_augmentations_to_mask
 
-        self.return_original_dimensions = return_original_dimensions
 
     def __getitem__(self, i):
         # Reading in the data
@@ -58,20 +58,21 @@ class CVDataset(BaseDataset):
         # Storing original height and width
         original_height, original_width = image.shape[:2]
        
-        if self.augmentation:
+        if self.apply_aug_to_mask and self.augmentation:
             sample = self.augmentation(image = image, mask = mask)
             image, mask = sample['image'], sample['mask']
-        
+        else:
+            sample = self.augmentation(image = image)
+            image = sample['image']
+
         # appy preprocessing
         if self.preprocessing:
             sample = self.preprocessing(image = image, mask = mask)
             image, mask = sample['image'], sample['mask']
 
-        if not self.return_original_dimensions:
-            return image, mask
-        else:
-            # Calculculate the orignal HW
-            return image, mask, (original_height, original_width)
+        return image, mask
+
+
     
     def __len__(self):
         return len(self.images_fps)
