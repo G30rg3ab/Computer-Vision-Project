@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from .dataset import CVDataset
 from torchmetrics.classification import JaccardIndex
 from tqdm import tqdm
+import torchvision.transforms.functional as TF
 
 
 class preprocessing():
@@ -197,10 +198,10 @@ class model_utils():
             shuffle=True
         )
 
-        valid_ds = CVDataset(x_val_fps, y_val_fps, augmentation = valid_augmentation, preprocessing = preprocessing_fn)
+        valid_ds = CVDataset(x_val_fps, y_val_fps, augmentation = valid_augmentation, preprocessing = preprocessing_fn, return_original_dimensions=True)
         valid_loader = DataLoader(
             valid_ds,
-            batch_size= batch_size,
+            batch_size= 1,
             num_workers=num_workers,
             pin_memory=pin_memory,
             shuffle=False
@@ -246,23 +247,25 @@ class model_utils():
             pred_logits = (model(image))
             pred_mask = torch.argmax(pred_logits, dim=1)
             return pred_mask.squeeze(0)
-
+        
 
     def check_iou(loader, model, device = 'cuda'):
         iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(device)
         with torch.no_grad():
-            for x, y in loader: # x = image, y = mask
+            for x, y, (H, W) in loader: # x = image, y = mask, original_dim = (H, W)
                 x = x.to(device)
                 y = y.to(device)
 
-                # Forward pass: model outputs logits of shape (N,num_classes, H, W)
+                # Forward pass: model outputs logits of shape (N, num_classes, H, W)
                 preds = model(x)
 
                 # Convert logits to predicted class indices
                 preds = torch.argmax(preds, dim = 1)
-                # Cropping the predicted mask and the mask to the original image shape
                 # Updating for x,y in validation set
-                iou_metric.update(preds, y)
+                # Resizing back to original dimensions
+                preds_resized = TF.resize(preds, (H, W), interpolation=TF.InterpolationMode.NEAREST)
+                mask_resized = TF.resize(y, (H, W), interpolation=TF.InterpolationMode.NEAREST)
+                iou_metric.update(preds_resized, mask_resized)
 
         mean_iou = iou_metric.compute().item()
         iou_metric.reset() # Resetting for next epoch

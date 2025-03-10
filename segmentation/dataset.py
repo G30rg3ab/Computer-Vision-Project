@@ -12,7 +12,7 @@ class CVDataset(BaseDataset):
     '''
     Dataset class for Semantic Segmentation
     '''
-    def __init__(self, images_fps, masks_fps, augmentation = None, preprocessing = None):
+    def __init__(self, images_fps, masks_fps, augmentation = None, preprocessing = None, return_original_dimensions = False):
         '''
         Initialize the Dataset.
 
@@ -43,6 +43,8 @@ class CVDataset(BaseDataset):
         self.augmentation  = augmentation
         self.preprocessing = preprocessing
 
+        self.return_original_dimensions = return_original_dimensions
+
     def __getitem__(self, i):
         # Reading in the data
         image = cv2.imread(self.images_fps[i])
@@ -52,6 +54,9 @@ class CVDataset(BaseDataset):
         # Replacing class_intensity_dict values with their index
         for idx, pixel_intensity in enumerate(self.class_intensity_dict.values()):
             mask[mask == pixel_intensity] = idx
+
+        # Storing original height and width
+        original_height, original_width = image.shape[:2]
        
         if self.augmentation:
             sample = self.augmentation(image = image, mask = mask)
@@ -61,8 +66,12 @@ class CVDataset(BaseDataset):
         if self.preprocessing:
             sample = self.preprocessing(image = image, mask = mask)
             image, mask = sample['image'], sample['mask']
-        
-        return image, mask
+
+        if not self.return_original_dimensions:
+            return image, mask
+        else:
+            # Calculculate the orignal HW
+            return image, mask, (original_height, original_width)
     
     def __len__(self):
         return len(self.images_fps)
