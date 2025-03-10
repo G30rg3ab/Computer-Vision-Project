@@ -350,9 +350,6 @@ class ModelEval():
             pred_mask = pred_mask.to(device=self.device)
             ground_truth = ground_truth.to(device=self.device)
 
-            print(f'pred mask in on device: {pred_mask.device}')
-            print(f'truth mask in on device: {ground_truth.device}')
-
             # ✅ Ensure both tensors are long-type (integer labels)
             pred_mask = pred_mask.to(dtype=torch.long)
             ground_truth = ground_truth.to(dtype=torch.long)

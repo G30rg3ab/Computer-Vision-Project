@@ -81,7 +81,7 @@ def main():
     preprocess_fn = preprocessing.get_preprocessing(preprocessing_fn=None)
 
     # Initialising the data loaders
-    train_ds = CVDataset(x_train_fps[:5], y_train_fps[:5], augmentation = train_augmentation, preprocessing = preprocess_fn)
+    train_ds = CVDataset(x_train_fps, y_train_fps, augmentation = train_augmentation, preprocessing = preprocess_fn)
     train_loader = DataLoader(train_ds,batch_size= BATCHSIZE,num_workers=NUM_WORKERS,pin_memory=PIN_MEMORY,shuffle=True)
 
     # Validation data set
@@ -91,7 +91,7 @@ def main():
     # 2. Make prediction with image from 1
     # 3. Compare with the original ground truth mask
     # 4. Compare predicted mask with original image
-    valid_ds = CVDataset(x_val_fps[:2], y_val_fps[:2], augmentation = valid_augmentation, preprocessing = preprocess_fn)
+    valid_ds = CVDataset(x_val_fps, y_val_fps, augmentation = valid_augmentation, preprocessing = preprocess_fn)
 
     scaler = amp.GradScaler()
     for epoc in range(NUM_EPOCHS):
