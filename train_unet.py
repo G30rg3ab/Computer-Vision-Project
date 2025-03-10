@@ -17,7 +17,7 @@ from segmentation.utils import preprocessing
 # Hyperparameters
 LEARNING_RATE = 1e-4
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-BATCHSIZE = 16
+BATCHSIZE = 8
 NUM_EPOCHS = 50
 NUM_WORKERS = 2
 PIN_MEMORY = True
@@ -88,7 +88,7 @@ def main():
 
         # check accuracy
         model_utils.check_accuracy(val_loader, model, device = DEVICE)
-        model_utils.check_iou(val_loader, model, device=DEVICE)
+
 
 
 if __name__ == '__main__':

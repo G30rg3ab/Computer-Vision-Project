@@ -211,8 +211,8 @@ class model_utils():
         num_correct = 0
         num_pixels = 0
         model.eval()
-
-        with torch.no_grad():
+        iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(device)
+        with torch.inference_mode():
             for x, y in loader:
                 x = x.to(device)
                 y = y.to(device)  # shape: (N, H, W), with integer labels in [0..(num_classes-1)]
@@ -226,8 +226,13 @@ class model_utils():
                 # Compare preds with ground truth
                 num_correct += (preds == y).sum().item()
                 num_pixels  += torch.numel(preds)  # total number of pixels
+                iou_metric.update(preds, y)
 
-        print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels * 100:.2f}")
+            mean_iou = iou_metric.compute().item()
+            iou_metric.reset() # Resetting for next epoch
+            print(f"Mean IoU: {mean_iou:.4f}")
+            print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels * 100:.2f}")
+            
         model.train()
 
 
