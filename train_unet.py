@@ -102,30 +102,30 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }
-        model_utils.save_checkpoint(checkpoint)
+        # model_utils.save_checkpoint(checkpoint)
 
         # Checking every 10 epochs
-        if (epoc % 10) == 0:
-            # check the Intersection over union score every 10 epochs
-            model_utils.check_iou(valid_ds, model, device = DEVICE)
+        # if (epoc % 10) == 0:
+        #     # check the Intersection over union score every 10 epochs
+        #     model_utils.check_iou(valid_ds, model, device = DEVICE)
 
-    print('Model training complete! Calculating performance metrics and saving')
+    # print('Model training complete! Calculating performance metrics and saving')
     # Computing the mean IoU score before saving
-    eval = ModelEval(valid_ds, model, device=DEVICE)
-    mean_IoU = eval.mean_IoU(progress_bar=False)
+    # eval = ModelEval(valid_ds, model, device=DEVICE)
+    # mean_IoU = eval.mean_IoU(progress_bar=False)
     # Printing the score (this will also be in saved file)
-    print('The mean Intersection over union score is: ', mean_IoU)
+    # print('The mean Intersection over union score is: ', mean_IoU)
 
-    # Save final model
-    model_utils.save_final_model(
-        model=model,
-        optimizer=optimizer,
-        iou=mean_IoU,  # Final IoU score
-        hyperparams=hyperparams,
-        filename="unet_model_0.pth",
-        s3_bucket=BucketConstants.bucket,  # Set S3 bucket (optional)
-        s3_key="unet_model_0.pth"    # Set path inside S3 (optional)
-    )
+    # # Save final model
+    # model_utils.save_final_model(
+    #     model=model,
+    #     optimizer=optimizer,
+    #     iou=mean_IoU,  # Final IoU score
+    #     hyperparams=hyperparams,
+    #     filename="unet_model_0.pth",
+    #     s3_bucket=BucketConstants.bucket,  # Set S3 bucket (optional)
+    #     s3_key="unet_model_0.pth"    # Set path inside S3 (optional)
+    # )
 
 if __name__ == '__main__':
     main()
