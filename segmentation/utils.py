@@ -58,7 +58,7 @@ class preprocessing():
         train_transform = [
             albu.RandomCrop(256, 416, pad_if_needed=True, fill_mask=255),
             albu.HorizontalFlip(p=0.5),
-            albu.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5),  # Random shift, scale, and rotation
+            albu.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5, fill_mask=255),  # Random shift, scale, and rotation
             albu.OneOf([
                 albu.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=1),
                 albu.CLAHE(p=1),
@@ -81,8 +81,9 @@ class preprocessing():
         '''
         # Add sufficient padding to ensure image is divisible by 32
         test_transform = [
-            albu.PadIfNeeded(min_height=768, min_width=768, border_mode=0, fill_mask=255),
-            albu.Resize(768, 768) # Incase 768 x 768 is not enough, probably should fix later in a better way
+            #albu.PadIfNeeded(min_height=768, min_width=768, border_mode=0, fill_mask=255),
+            #albu.Resize(768, 768) # Incase 768 x 768 is not enough, probably should fix later in a better way
+            albu.Resize(256, 416)
         ]
         return albu.Compose(test_transform)
     
@@ -235,6 +236,17 @@ class model_utils():
             print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels * 100:.2f}")
 
         model.train()
+
+    @staticmethod
+    def predict(model, image):
+        model.eval()
+        with torch.inference_mode():
+            # Adding an extra dimension to the image (batch size of 1)
+            image = image.unsqueeze(0)
+            pred_logits = (model(image))
+            pred_mask = torch.argmax(pred_logits, dim=1)
+            return pred_mask.squeeze(0)
+
 
     def check_iou(loader, model, device = 'cuda'):
         iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(device)

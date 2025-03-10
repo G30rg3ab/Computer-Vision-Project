@@ -67,3 +67,35 @@ class CVDataset(BaseDataset):
     def __len__(self):
         return len(self.images_fps)
     
+    def get_dataset_dimensions(self):
+        """
+        Returns the minimum and maximum height and width of the dataset images.
+
+        Returns:
+        --------
+        dict: 
+            {
+                'min_height': int,
+                'max_height': int,
+                'min_width': int,
+                'max_width': int
+            }
+        """
+        min_height, min_width = float('inf'), float('inf')
+        max_height, max_width = 0, 0
+
+        for img_path in self.images_fps:
+            image = cv2.imread(img_path)
+            h, w = image.shape[:2]
+            
+            min_height = min(min_height, h)
+            min_width = min(min_width, w)
+            max_height = max(max_height, h)
+            max_width = max(max_width, w)
+        
+        return {
+            'min_height': min_height,
+            'max_height': max_height,
+            'min_width': min_width,
+            'max_width': max_width
+        }
