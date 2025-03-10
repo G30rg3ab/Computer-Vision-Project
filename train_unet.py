@@ -86,10 +86,10 @@ def main():
         }
         model_utils.save_checkpoint(checkpoint)
 
-    # Checking every 10 epochs
-    if (epoc % 10) == 0:
-        # check the Intersection over union score every 10 epochs
-        model_utils.check_iou(val_loader, model, device = DEVICE)
+        # Checking every 10 epochs
+        if (epoc % 10) == 0:
+            # check the Intersection over union score every 10 epochs
+            model_utils.check_iou(val_loader, model, device = DEVICE)
 
 if __name__ == '__main__':
     main()
