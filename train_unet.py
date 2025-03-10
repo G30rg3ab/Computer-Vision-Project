@@ -91,5 +91,8 @@ def main():
             # check the Intersection over union score every 10 epochs
             model_utils.check_iou(val_loader, model, device = DEVICE)
 
+    # When finshed print the iou on validation set
+    model_utils.check_iou(val_loader, model, device=DEVICE)
+
 if __name__ == '__main__':
     main()
