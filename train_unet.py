@@ -20,8 +20,8 @@ from segmentation.constants import BucketConstants
 # Hyperparameters
 LEARNING_RATE = 1e-4
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-BATCHSIZE = 1
-NUM_EPOCHS = 1
+BATCHSIZE = 8
+NUM_EPOCHS = 50
 NUM_WORKERS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
@@ -38,7 +38,9 @@ hyperparams={
     "batch_size": BATCHSIZE,
     "epochs": NUM_EPOCHS,
     "model_arch": "UNet",
-    "augmentation": "horizontal_flip, random_crop",
+    'Resize: ': 'Resize training: (256, 416), Resize validation: (256, 416)',
+    'Inverse Resize Method': 'TF.InterpolationMode.NEAREST',
+    'augmentation': 'RandomCrop, HorizontalFlip, ShiftScaleRotate, RandomBrightnessContrast, CLAHE, HueSaturationValue, GaussNoise'
 }
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
