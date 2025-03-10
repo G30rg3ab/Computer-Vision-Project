@@ -306,6 +306,9 @@ class ModelEval():
         self.model = model
         self.device = device
 
+        # Putting the model on device 
+        self.model.to(device)
+
     def predict(self, i):
         '''
         Function that uses dataset directly to make a prediction
