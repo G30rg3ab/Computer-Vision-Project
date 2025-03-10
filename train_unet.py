@@ -102,12 +102,13 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }
-    model_utils.save_checkpoint(checkpoint)
 
-    # Checking every 10 epochs
-    if (epoc % 10) == 0:
-        # check the Intersection over union score every 10 epochs
-        model_utils.check_iou(valid_ds, model, device = DEVICE)
+        model_utils.save_checkpoint(checkpoint)
+
+        # Checking every 10 epochs
+        if (epoc % 10) == 0:
+            # check the Intersection over union score every 10 epochs
+            model_utils.check_iou(valid_ds, model, device = DEVICE)
 
     print('Model training complete! Calculating performance metrics and saving')
     #Computing the mean IoU score before saving
