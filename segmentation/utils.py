@@ -16,6 +16,7 @@ import torchvision.transforms.functional as TF
 import matplotlib.patches as mpatches
 import matplotlib.colors as mcolors
 import boto3
+import csv
 
 # Custom imports
 from .constants import VisualisationConstants
@@ -442,3 +443,27 @@ class ModelEval():
         # Remove temp file if downloaded from S3
         if checkpoint_path == "temp_model.pth":
             os.remove(checkpoint_path)
+
+class traininglog():
+    @staticmethod
+    def log_training(log_filename, epoch, val_iou, hyperparameters):
+        """
+        Logs the epoch, training loss, and validation IoU to a CSV file.
+        """
+        file_exists = os.path.isfile(log_filename)
+        with open(log_filename, 'a', newline='') as csvfile:
+            fieldnames = ['epoch', 'train_loss', 'val_iou']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()  # Write header only once.
+            writer.writerow({'epoch': epoch, 'val_iou': val_iou, 'hyperparameters': hyperparameters})
+
+class s3utils():
+    @staticmethod
+    def upload_s3(local_file_path, s3_bucket, s3_key):
+        s3_client = boto3.client("s3")
+        try:
+            s3_client.upload_file(local_file_path, s3_bucket, s3_key)
+            print(f"File uploaded to s3://{s3_bucket}/{s3_key}")
+        except Exception as e:
+            print(f"Failed to upload file to S3: {e}")

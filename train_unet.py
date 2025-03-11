@@ -12,11 +12,15 @@ from torch import amp
 import optuna
 
 # Custom
-from segmentation.utils import model_utils, ModelEval
-from segmentation.utils import preprocessing
+from segmentation.utils import model_utils, ModelEval, s3utils
+from segmentation.utils import preprocessing, traininglog
 from segmentation.dataset import CVDataset
 from torch.utils.data import DataLoader
 from segmentation.constants import BucketConstants
+
+trial_save_template = 'unet_model_trial_{}'
+model_folder_name = 'model_tuning_0'
+log_save_name = 'training_log'
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
@@ -33,17 +37,6 @@ x_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/color')
 y_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/label')
 # Splitting relative path names into into training and validation
 x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(x_trainVal_dir, y_trainVal_dir, 0.2)
-
-hyperparams={
-    "learning_rate": LEARNING_RATE,
-    "batch_size": BATCHSIZE,
-    "epochs": NUM_EPOCHS,
-    "model_arch": "UNet",
-    'Resize: ': 'Resize training: (256, 416), Resize validation: (256, 416)',
-    'Inverse Resize Method': 'TF.InterpolationMode.NEAREST',
-    'augmentation': 'RandomCrop, HorizontalFlip, ShiftScaleRotate, RandomBrightnessContrast, CLAHE, HueSaturationValue, GaussNoise'
-}
-
 best_iou = 0
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
@@ -83,6 +76,8 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
         # Evaluate every few epochs
         current_iou = ModelEval(valid_ds, model, device=DEVICE).mean_IoU(progress_bar=False)
         print(f"Epoch {epoch}: Validation IoU = {current_iou:.4f}")
+        traininglog.log_training(log_save_name, epoch, current_iou, hyperparameters)
+
         if current_iou > best_iou:
             best_iou = current_iou
             # Saving this model (best model)
@@ -93,9 +88,10 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
                 'epoch': epoch,
                 'IoU': current_iou
             }
-            # Sending the model to s3 bucket
-            name = f'unet_best_trial_{trial_id}.pth'
-            model_utils.save_checkpoint(model, checkpoint, name, BucketConstants.bucket,name)
+            # Saving the model checkpoint for hyperparameters
+            name = trial_save_template.format(trial_id)
+            model_utils.save_checkpoint(model, checkpoint, name)
+
     return best_iou
 
 
@@ -135,6 +131,20 @@ def objective(trial):
     return best_iou
 
 def tune_unet():
+
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=10)
+    study.optimize(objective, n_trials=3)
     print('Best hyperparameters:', study.best_params)
+
+    # Finished training the model
+    best_trial = study.best_trial
+    best_trial_path = trial_save_template.format(best_trial)
+    save_path = os.path.join(model_folder_name, best_trial_path)
+
+    # Uploading the best model
+    s3utils.upload_s3(best_trial_path, BucketConstants.bucket, save_path)
+
+    # Uploading the log
+    log_save_path = os.path.join(model_folder_name, log_save_name)
+    s3utils.upload_s3()
+    
