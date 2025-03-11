@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader
 from segmentation.constants import BucketConstants
 
 trial_save_template = 'unet_model_trial_{}'
-model_folder_name = 'model_tuning_0'
-log_save_name = 'training_log'
+model_folder_name = 'unet_experiment_0'
+log_save_name = 'training_log.csv'
 
 # Hyperparameters
 LEARNING_RATE = 1e-4
@@ -88,9 +88,11 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
                 'epoch': epoch,
                 'IoU': current_iou
             }
+            
             # Saving the model checkpoint for hyperparameters
-            name = trial_save_template.format(trial_id)
-            model_utils.save_checkpoint(model, checkpoint, name)
+            name = trial_save_template.format(trial_id) + '.pth'
+            key = os.path.join(model_folder_name, name)
+            model_utils.save_checkpoint(model, checkpoint, name, BucketConstants.bucket, key)
 
     return best_iou
 
@@ -137,12 +139,8 @@ def tune_unet():
     print('Best hyperparameters:', study.best_params)
 
     # Finished training the model
-    best_trial = study.best_trial
-    local_trial_path = trial_save_template.format(best_trial.number)
-    save_path = os.path.join(model_folder_name, local_trial_path)
-
-    # Uploading the best model
-    s3utils.upload_s3(local_trial_path, BucketConstants.bucket, save_path)
+    best_trial = study.best_trial.number
+    print(f'Best trial number was {best_trial}')
 
     # Uploading the log
     log_save_path = os.path.join(model_folder_name, log_save_name)
