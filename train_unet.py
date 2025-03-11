@@ -147,4 +147,7 @@ def tune_unet():
     # Uploading the log
     log_save_path = os.path.join(model_folder_name, log_save_name)
     s3utils.upload_s3(log_save_name,  BucketConstants.bucket, log_save_path)
+
+if __name__ == '__main__':
+    tune_unet()
     
