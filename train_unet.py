@@ -98,7 +98,7 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
 
 def objective(trial):
     # 1. Sample hyperparameters
-    learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-2, log = True)
+    learning_rate = LEARNING_RATE
     batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
     optimizer_type = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
 
