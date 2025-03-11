@@ -98,9 +98,9 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
 
 def objective(trial):
     # 1. Sample hyperparameters
-    learning_rate = LEARNING_RATE
+    learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
-    optimizer_type = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
+    optimizer_type = 'Adam'
 
     # 2. Create the model and optimizer
     model = UNET(in_channels=3, out_channels=3).to(DEVICE)
