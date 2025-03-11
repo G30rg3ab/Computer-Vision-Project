@@ -138,13 +138,13 @@ def tune_unet():
 
     # Finished training the model
     best_trial = study.best_trial
-    best_trial_path = trial_save_template.format(best_trial)
-    save_path = os.path.join(model_folder_name, best_trial_path)
+    local_trial_path = trial_save_template.format(best_trial.number)
+    save_path = os.path.join(model_folder_name, local_trial_path)
 
     # Uploading the best model
-    s3utils.upload_s3(best_trial_path, BucketConstants.bucket, save_path)
+    s3utils.upload_s3(local_trial_path, BucketConstants.bucket, save_path)
 
     # Uploading the log
     log_save_path = os.path.join(model_folder_name, log_save_name)
-    s3utils.upload_s3()
+    s3utils.upload_s3(log_save_name,  BucketConstants.bucket, log_save_path)
     

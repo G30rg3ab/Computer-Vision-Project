@@ -452,7 +452,7 @@ class traininglog():
         """
         file_exists = os.path.isfile(log_filename)
         with open(log_filename, 'a', newline='') as csvfile:
-            fieldnames = ['epoch', 'train_loss', 'val_iou']
+            fieldnames = ['epoch', 'val_iou', 'hyperparameters']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if not file_exists:
                 writer.writeheader()  # Write header only once.
