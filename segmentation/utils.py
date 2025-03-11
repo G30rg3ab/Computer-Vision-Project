@@ -21,7 +21,6 @@ import boto3
 from .constants import VisualisationConstants
 
 class preprocessing():
-
     @ staticmethod
     def train_val_split(x_trainVal_dir, y_trainVal_dir, val_size = 0.2, random_state = 42):
         # Getting the names of the images
@@ -164,27 +163,11 @@ class model_utils():
         pass
 
     @staticmethod
-    def save_final_model(model, optimizer, iou, hyperparams, filename="final_model.pth", s3_bucket=None, s3_key=None):
+    def save_checkpoint(model, checkpoint, filename="final_model.pth", s3_bucket=None, s3_key=None):
         """
         Save the trained model along with metadata for experiment tracking.
         Optionally upload the model to an S3 bucket.
-
-        Args:
-        - model (torch.nn.Module): Trained PyTorch model.
-        - optimizer (torch.optim.Optimizer): Optimizer state.
-        - iou (float): Final IoU score.
-        - hyperparams (dict): Dictionary of hyperparameters.
-        - filename (str): Local filename to save the model.
-        - s3_bucket (str, optional): S3 bucket name to upload the file.
-        - s3_key (str, optional): Key (path) to store the file in S3.
         """
-        checkpoint = {
-            "state_dict": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "iou": iou,
-            "hyperparams": hyperparams,  # Dictionary containing learning rate, batch size, etc.
-        }
-
         # **Step 1: Save model to file**
         torch.save(checkpoint, filename)
         print(f"=> Final model and metadata saved to {filename}")
@@ -193,17 +176,12 @@ class model_utils():
         if s3_bucket and s3_key:
             try:
                 s3_client = boto3.client("s3")
-                with open(filename, "rb") as f:  # ✅ Open file in binary read mode
+                with open(filename, "rb") as f:  
                     s3_client.upload_fileobj(f, s3_bucket, s3_key)
 
                 print(f"=> Model uploaded to S3: s3://{s3_bucket}/{s3_key}")
             except Exception as e:
                 print(f"Failed to upload model to S3: {e}")
-
-    @staticmethod
-    def save_checkpoint(state, filename = 'my_checkpoint.pth.tar'):
-        print('=> Saving checkpoint')
-        torch.save(state, filename)
     
     @staticmethod
     def load_checkpoint(checkpoint, model):
@@ -290,6 +268,7 @@ class model_utils():
         print(f"Mean IoU on original domain: {mean_iou:.4f}")
         # back to training
         model.train()
+        return mean_iou
 
 class ModelEval():
     def __init__(self, dataset, model, device = 'cuda'):
@@ -434,7 +413,7 @@ class ModelEval():
             print(f"=> Downloading model from {checkpoint_path}...")
 
             # Extract S3 bucket and key
-            s3_client = boto3.client("s3")
+            s3_client = boto3.client("s3", region_name="us-east-1")
             bucket_name = checkpoint_path.split("/")[2]
             s3_key = "/".join(checkpoint_path.split("/")[3:])
 
