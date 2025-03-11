@@ -22,7 +22,7 @@ from segmentation.constants import BucketConstants
 LEARNING_RATE = 1e-4
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 BATCHSIZE = 8
-NUM_EPOCHS = 50
+NUM_EPOCHS = 2
 NUM_WORKERS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
@@ -81,22 +81,21 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
         train_fn(train_loader, model, optimizer, loss_fn, scaler)
 
         # Evaluate every few epochs
-        if epoch % 5 == 0:
-            current_iou = ModelEval(valid_ds, model, device=DEVICE).mean_IoU(progress_bar=False)
-            print(f"Epoch {epoch}: Validation IoU = {current_iou:.4f}")
-            if current_iou > best_iou:
-                best_iou = current_iou
-                # Saving this model (best model)
-                checkpoint = {
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'hyperparameters': hyperparameters,
-                    'epoch': epoch,
-                    'IoU': current_iou
-                }
-                # Sending the model to s3 bucket
-                name = f'unet_best_trial_{trial_id}.pth'
-                model_utils.save_checkpoint(model, checkpoint, name, BucketConstants.bucket,name)
+        current_iou = ModelEval(valid_ds, model, device=DEVICE).mean_IoU(progress_bar=False)
+        print(f"Epoch {epoch}: Validation IoU = {current_iou:.4f}")
+        if current_iou > best_iou:
+            best_iou = current_iou
+            # Saving this model (best model)
+            checkpoint = {
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'hyperparameters': hyperparameters,
+                'epoch': epoch,
+                'IoU': current_iou
+            }
+            # Sending the model to s3 bucket
+            name = f'unet_best_trial_{trial_id}.pth'
+            model_utils.save_checkpoint(model, checkpoint, name, BucketConstants.bucket,name)
     return best_iou
 
 
@@ -139,6 +138,3 @@ def tune_unet():
     study = optuna.create_study(direction='maximize')
     study.optimize(objective, n_trials=10)
     print('Best hyperparameters:', study.best_params)
-
-if __name__ == '__main__':
-    tune_unet()
