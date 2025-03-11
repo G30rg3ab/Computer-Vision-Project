@@ -26,7 +26,7 @@ log_save_name = 'training_log.csv'
 LEARNING_RATE = 1e-4
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 BATCHSIZE = 8
-NUM_EPOCHS = 2
+NUM_EPOCHS = 70
 NUM_WORKERS = 4
 PIN_MEMORY = True
 LOAD_MODEL = False
@@ -37,7 +37,6 @@ x_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/color')
 y_trainVal_dir = os.path.join(DATA_DIR, 'TrainVal/label')
 # Splitting relative path names into into training and validation
 x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(x_trainVal_dir, y_trainVal_dir, 0.2)
-best_iou = 0
 
 def train_fn(loader, model, optimizer, loss_fn, scaler):
     '''
@@ -68,7 +67,7 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
     '''
     Trains the model for a given set of hyperparameters and evaluates it.
     '''
-    best_iou = 0 # Best IoU for this trail
+    best_iou = 0 # Best IoU for this trial
     for epoch in range(num_epochs):
         # ... training loop ....
         train_fn(train_loader, model, optimizer, loss_fn, scaler)
@@ -99,7 +98,7 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
 
 def objective(trial):
     # 1. Sample hyperparameters
-    learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1e-2)
+    learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-2, log = True)
     batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
     optimizer_type = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
 
@@ -126,6 +125,7 @@ def objective(trial):
 
     hyperparams = {'learning_rate': learning_rate,
                    'batch_size': batch_size,
+                   'optimizer_type': optimizer_type,
                    'total_epochs': NUM_EPOCHS}
 
     # Best IoU score for the set of hyperparameters
@@ -135,7 +135,7 @@ def objective(trial):
 def tune_unet():
 
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=3)
+    study.optimize(objective, n_trials=15)
     print('Best hyperparameters:', study.best_params)
 
     # Finished training the model
