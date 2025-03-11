@@ -18,7 +18,7 @@ from segmentation.dataset import CVDataset
 from torch.utils.data import DataLoader
 from segmentation.constants import BucketConstants
 
-trial_save_template = 'unet_model_trial_{}'
+trial_save_template = 'unet_best_model_trial_{}'
 model_folder_name = 'unet_experiment_0'
 log_save_name = 'training_log.csv'
 
@@ -76,7 +76,7 @@ def train_and_evaluate(model, optimizer, train_loader, valid_ds, loss_fn, scaler
         # Evaluate every few epochs
         current_iou = ModelEval(valid_ds, model, device=DEVICE).mean_IoU(progress_bar=False)
         print(f"Epoch {epoch}: Validation IoU = {current_iou:.4f}")
-        traininglog.log_training(log_save_name, epoch, current_iou, hyperparameters)
+        traininglog.log_training(log_save_name,trial = trial_id, epoch =  epoch, val_IoU =  current_iou, hyperparameters = hyperparameters)
 
         if current_iou > best_iou:
             best_iou = current_iou

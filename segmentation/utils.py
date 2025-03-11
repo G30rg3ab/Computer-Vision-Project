@@ -205,7 +205,7 @@ class model_utils():
         which is difficult to work with when batch size > 1, because the images must be resized before comparison
         '''
 
-        print('Warning: Not using this function anymore because')
+        print(message)
         # Splitting relative path names into into training and validation
         x_train_fps, x_val_fps, y_train_fps, y_val_fps = preprocessing.train_val_split(trainVal_dir, trainVal_maskdir, 0.2)
         # Initialising the data loaders
@@ -446,17 +446,23 @@ class ModelEval():
 
 class traininglog():
     @staticmethod
-    def log_training(log_filename, epoch, val_iou, hyperparameters):
+    def log_training(log_filename, **kwargs):
         """
-        Logs the epoch, training loss, and validation IoU to a CSV file.
+        Logs arbitrary key-value pairs to a CSV file.
+        
+        Parameters:
+            log_filename (str): The path to the CSV log file.
+            **kwargs: Arbitrary key-value pairs to log.
+                    For example: epoch=1, val_iou=0.85, hyperparameters={'lr': 0.0001}
         """
         file_exists = os.path.isfile(log_filename)
+        fieldnames = list(kwargs.keys())  # Determine fieldnames from kwargs
+        
         with open(log_filename, 'a', newline='') as csvfile:
-            fieldnames = ['epoch', 'val_iou', 'hyperparameters']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if not file_exists:
-                writer.writeheader()  # Write header only once.
-            writer.writerow({'epoch': epoch, 'val_iou': val_iou, 'hyperparameters': hyperparameters})
+                writer.writeheader()  # Write header only once if file does not exist.
+            writer.writerow(kwargs)
 
 class s3utils():
     @staticmethod
