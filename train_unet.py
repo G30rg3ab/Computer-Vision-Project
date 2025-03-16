@@ -105,9 +105,8 @@ def objective(trial):
     # 2. Create the model and optimizer
     model = UNET(in_channels=3, out_channels=3).to(DEVICE)
     loss_fn = nn.CrossEntropyLoss(ignore_index=255)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate) if optimizer_type == "Adam" \
-                else optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
-
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    
     # 3. Prepare data loaders using batch_size
     train_augmentation = preprocessing.get_training_augmentation()
     valid_augmentation = preprocessing.get_validation_augmentation()

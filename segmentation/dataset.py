@@ -27,9 +27,6 @@ class CVDataset(BaseDataset):
         masks_dir: str
           Path to the directory containing ground truths.
 
-        classes: list of str:
-            optional, list of class names to extract from the masks. If None, the dataset may default to all available classes.
-
         augmentation: albumentations.Compose: 
             A set of augmentation transforms to apply to both images and masks 
 
@@ -48,14 +45,8 @@ class CVDataset(BaseDataset):
 
     def __getitem__(self, i):
         # Reading in the data
-        image = cv2.imread(self.images_fps[i])
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(self.masks_fps[i], 0)
-
-        # Replacing class_intensity_dict values with their index
-        for idx, pixel_intensity in enumerate(self.class_intensity_dict.values()):
-            mask[mask == pixel_intensity] = idx
-
+        image = self.original_image(i)
+        mask = self.original_mask(i)
        
         if self.augmentation:
             sample = self.augmentation(image = image, mask = mask)
@@ -115,3 +106,4 @@ class CVDataset(BaseDataset):
             'min_width': min_width,
             'max_width': max_width
         }
+    
