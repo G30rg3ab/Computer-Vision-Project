@@ -71,6 +71,10 @@ class CVDataset(BaseDataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return image
     
+    def image_shape(self, i):
+        image = cv2.imread(self.images_fps[i])
+        return image.shape
+    
     def __len__(self):
         return len(self.images_fps)
     

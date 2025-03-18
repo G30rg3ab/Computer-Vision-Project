@@ -552,6 +552,7 @@ class ModelEval():
                            ground_truth_mask = self.ground_truth_mask) 
 
     def mean_IoU(self, progress_bar = False):
+        print("calling mean IoU score")
         self.model.eval()
         iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
         
@@ -559,6 +560,7 @@ class ModelEval():
         for i in loop:
             # Getting the prediction
             pred_mask, ground_truth = self.predict(i)
+            print(f'pred_mask shape: {pred_mask.shape}')
             pred_mask = pred_mask.to(device=self.device)
             ground_truth = ground_truth.to(device=self.device)
 
@@ -569,6 +571,7 @@ class ModelEval():
             # ✅ Ensure batch dimension (N=1)
             pred_mask = pred_mask.unsqueeze(0)
             ground_truth = ground_truth.unsqueeze(0)
+            print(f'pred_mask before iou shape: {pred_mask.shape}')
             iou_metric.update(pred_mask, ground_truth)
 
         mean_iou = iou_metric.compute().item()
@@ -823,6 +826,7 @@ class ModelEval():
         # forward pass
         with torch.inference_mode():
             pred_logits = self.model(image.unsqueeze(0)) # Getting the prediction for the preprocessed image
+            print(pred_logits.shape)
             pred_mask = torch.argmax(pred_logits, dim = 1)
 
             # Resizing the predicted mask to the original dimensions
