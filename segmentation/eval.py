@@ -7,9 +7,10 @@ class CVDatasetPredictions():
 
     def __init__(self, dataset, device = 'cpu'):
         self.dataset = dataset
-        self.divice  = device
-         
-        self.iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
+        self.device  = device
+            
+        self.iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255)
+        self.iou_metric = self.iou_metric.to(self.device)  # Ensure correct device
     
     def set_prediction_fn(self, predict_fn, **kwargs):
         """
@@ -47,6 +48,7 @@ class CVDatasetPredictions():
             # Getting the original mask
             ground_truth = self.dataset.original_mask(i)
             ground_truth = torch.from_numpy(ground_truth)
+            ground_truth = ground_truth.to(self.device)
 
             # Updating the iou metric
             self.iou_metric.update(pred_mask, ground_truth)
@@ -55,5 +57,26 @@ class CVDatasetPredictions():
         # Resetting the metric
         self.iou_metric.reset()
         return mean_iou
+    
+    
+def predict(image, model, device="cuda" if torch.cuda.is_available() else "cpu"):
+    '''
+    Function that makes a predicted mask from the input image.
 
-        
+    # Parameters
+        image: image of size (3, H, W)
+
+    # Returns
+        predicted mask of size (1, H, W)
+    '''
+    model.to(device)  # Ensure model is on the correct device
+    model.eval()
+    
+    image = image.to(device)  # Move image to the same device as model
+
+    # pred_logits from resized image (3, H, W) -> (1, 3, H, W)
+    with torch.no_grad():  # Disable gradients for inference
+        pred_logits = model(image.unsqueeze(0))
+        pred_mask = torch.argmax(pred_logits, dim=1)
+
+    return pred_mask
