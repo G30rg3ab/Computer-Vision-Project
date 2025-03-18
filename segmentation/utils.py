@@ -300,18 +300,6 @@ class preprocessing():
             albu.Resize(256, 416)
         ]
         return albu.Compose(test_transform, is_check_shapes=False)
-    
-    @ staticmethod
-    def get_transforms():
-        transforms = albu.Compose([
-        albu.Resize(256, 416, p=1),
-        albu.Normalize(
-            mean = [0, 0, 0],
-            std = [1, 1, 1],
-            max_pixel_value = 255
-        ), ToTensorV2()
-        ])
-        return transforms
 
 
     @staticmethod
