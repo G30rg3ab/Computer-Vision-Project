@@ -155,7 +155,7 @@ class traininglog():
             writer.writerow(kwargs)
 
 
-def create_heatmap(image_shape, point, sigma=10):
+def create_heatmap(image_shape, point, sigma=20):
     """
     Create a Gaussian heatmap centered at the given point.
 

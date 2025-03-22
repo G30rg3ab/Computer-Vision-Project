@@ -1,5 +1,6 @@
 import gradio as gr
 import torch
+from torch import cat
 
 # Custom imports
 from segmentation.utils import preprocessing, create_heatmap
@@ -16,9 +17,9 @@ preproc = preprocessing.get_preprocessing(preprocessing_fn=None)
 valid_aug = preprocessing.get_validation_augmentation()
 
 # Loading the model here
-unet_model = UNET(3, 3)
+unet_model = UNET(4, 3)
 unet_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/my_checkpoint.pth.tar', unet_model)
+model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model.pth', unet_model)
 
 # Getting device & sending model to device
 device="cuda" if torch.cuda.is_available() else "cpu"
@@ -58,27 +59,29 @@ def on_pixel_select(uploaded_image, event: gr.SelectData):
     sample = valid_aug(image = uploaded_image, keypoints=[selected_pixel])
     image, keypoint = sample['image'], sample['keypoints']
 
-    # Getting the heatmap
-    image_W = image.shape[2]
-    image_H = image.shape[1]
-    heatmap = create_heatmap((image_H, image_W), tuple(keypoint[0]), sigma = 10)
+    # Getting the resized image dimensions
+    image_W = image.shape[1]
+    image_H = image.shape[0]
+
+    heatmap = create_heatmap((image_H, image_W), keypoint[0], sigma = 10)
 
     # Preprocessing
     sample = preproc(image = image, heatmap = heatmap)
     image, heatmap = sample['image'], sample['heatmap']
 
-    # Debugging: shape print statements
-    print(f'image has shape: {image.shape}')
-    print(f'heatmap has shape {heatmap.shape}')
+    heatmap = heatmap.unsqueeze(0)  # shape (1, H, W)
+    model_input = cat([image, heatmap], dim=0)
+    model_input = model_input.float()
 
-    mask = inverse_resize_mask(predict_mask(image), original_H, original_W)
+    mask = inverse_resize_mask(predict_mask(model_input), original_H, original_W)
 
     # converting the mask to numpy
     mask = mask.detach().cpu().numpy()
-    print(f'Predicted mask has shape: {mask.shape}')
 
     # Convert the predicted mask to a 3-channel image
     colour_mask = colorise_mask(mask, pallete)
+
+    print(f'colour mask has shape {colour_mask.shape}')
     overlay = cv2.addWeighted(uploaded_image.copy(), 0.7, colour_mask.astype('uint8'), 0.3, 0)
 
     return gr.update(value=overlay)
