@@ -1,22 +1,12 @@
 import os
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
-from torch.utils.data import Dataset as BaseDataset
-import matplotlib.pyplot as plt_
 import albumentations as albu
-from sklearn.model_selection import train_test_split # type: ignore
+from sklearn.model_selection import train_test_split 
 from albumentations.pytorch import ToTensorV2
 import torch
-from torch.utils.data import DataLoader
-from .dataset import CVDataset
-# from torchmetrics.classification import JaccardIndex
-from tqdm import tqdm
-import torchvision.transforms.functional as TF
-import matplotlib.patches as mpatches
-import matplotlib.colors as mcolors
-import boto3
 import csv
+
 
 # Custom imports
 from .constants import VisualisationConstants
@@ -63,17 +53,17 @@ class preprocessing():
         which peforms augmentation during training.
         '''
         train_transform = [
-            albu.RandomCrop(256, 416, pad_if_needed=True, border_mode=0, fill_mask=255),
+            albu.RandomCrop(256, 416, pad_if_needed=True, border_mode=cv2.BORDER_REFLECT),
             albu.HorizontalFlip(p=0.5),
-            albu.Affine(translate_percent=(-0.05, 0.05),  scale=(0.95, 1.05), rotate=(-15, 15),p=0.5,border_mode=0,fill_mask=255),
+            albu.Affine(translate_percent=(-0.05, 0.05),  scale=(0.95, 1.05), rotate=(-15, 15),p=0.0,border_mode=0,fill_mask=255),
             albu.OneOf([
-                albu.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=1),
-                albu.CLAHE(p=1),
-                albu.HueSaturationValue(p=1)
-                ],
+                    albu.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=1),
+                    albu.CLAHE(p=1),
+                    albu.HueSaturationValue(p=1)
+                    ],
                 p=0.9,
             ),
-            albu.GaussNoise(p=0.2),
+                albu.GaussNoise(p=0.2),
         ]
         return albu.Compose(train_transform,
                             keypoint_params=albu.KeypointParams(format='xy', remove_invisible=True)
@@ -123,29 +113,6 @@ class preprocessing():
         )
     
 
-class show():
-    @ staticmethod
-    def colorise_mask(mask, palette):
-        return palette[mask]
-
-    @ staticmethod
-    # Helper function for data visualisation
-    def visualiseData(**image):
-        '''Plot images in one row'''
-
-        palette = VisualisationConstants.palette
-      
-        n = len(image)
-        plt_.figure(figsize = (10, 10))
-
-        for i, (name, image) in enumerate(image.items()):
-            plt_.subplot(1, n, i + 1)
-            plt_.xticks([])
-            plt_.yticks([])
-            plt_.title(' '.join(name.split('_')).title())
-            plt_.imshow(image)
-        plt_.show()
-
 class model_utils():
     def __init__(self):
         pass
@@ -159,199 +126,13 @@ class model_utils():
         # **Step 1: Save model to file**
         torch.save(checkpoint, filename)
         print(f"=> Final model and metadata saved to {filename}")
-
-        # **Step 2: Ensure the file is reopened before uploading**
-        if s3_bucket and s3_key:
-            try:
-                s3_client = boto3.client("s3")
-                with open(filename, "rb") as f:  
-                    s3_client.upload_fileobj(f, s3_bucket, s3_key)
-
-                print(f"=> Model uploaded to S3: s3://{s3_bucket}/{s3_key}")
-            except Exception as e:
-                print(f"Failed to upload model to S3: {e}")
     
     @staticmethod
     def load_checkpoint(checkpoint_path, model):
         print(f'=> Loading checkpoint from {checkpoint_path}')
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), weights_only=True)
         model.load_state_dict(checkpoint['state_dict'])
 
-class ModelEval():
-    def __init__(self, dataset, model, device = 'cuda'):
-        '''
-        # Parameters
-            dataset: CVDataset
-                dataset with validation_augmentation and preprocessing function 
-            applied
-
-            model: Object(torch.nn.modules)
-                Model inherited from torch.nn.modules used to make predictions
-        '''
-        self.dataset = dataset
-        self.model = model
-        self.device = device
-
-        # Putting the model on device 
-        self.model.to(device)
-
-    def predict(self, i):
-        '''
-        Function that uses dataset directly to make a prediction
-        the inverse resizing operations can be defined here and will
-        be used in the subsequent functions for evaluation purposes
-        '''
-        self.model.eval()
-        # Getting the ith image in the dataset, this has the scaling/resizing applied
-        image, _ = self.dataset[i]
-        image = image.to(self.device)
-        # Getting the unprocessed mask
-        unprocessed_mask = self.dataset.original_mask(i)
-        # Getting the dimensions of the unprocessed mask
-        H, W = unprocessed_mask.shape
-        # forward pass
-        with torch.inference_mode():
-            pred_logits = self.model(image.unsqueeze(0)) # Getting the prediction for the preprocessed image
-            pred_mask = torch.argmax(pred_logits, dim = 1)
-
-            # Resizing the predicted mask to the original dimensions
-            pred_original_dimensions = TF.resize(pred_mask, (H, W), interpolation=TF.InterpolationMode.NEAREST)
-            pred_original_dimensions = pred_original_dimensions.squeeze(0)
-
-            return pred_original_dimensions, torch.from_numpy(unprocessed_mask)
-
-    def visualise(self):
-        show.visualiseData(predicted_mask = self.prediction, 
-                           ground_truth_mask = self.ground_truth_mask) 
-
-    # def mean_IoU(self, progress_bar = False):
-    #     print("calling mean IoU score")
-    #     self.model.eval()
-    #     iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
-        
-    #     loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
-    #     for i in loop:
-    #         # Getting the prediction
-    #         pred_mask, ground_truth = self.predict(i)
-    #         print(f'pred_mask shape: {pred_mask.shape}')
-    #         pred_mask = pred_mask.to(device=self.device)
-    #         ground_truth = ground_truth.to(device=self.device)
-
-    #         # ✅ Ensure both tensors are long-type (integer labels)
-    #         pred_mask = pred_mask.to(dtype=torch.long)
-    #         ground_truth = ground_truth.to(dtype=torch.long)
-
-    #         # ✅ Ensure batch dimension (N=1)
-    #         pred_mask = pred_mask.unsqueeze(0)
-    #         ground_truth = ground_truth.unsqueeze(0)
-    #         print(f'pred_mask before iou shape: {pred_mask.shape}')
-    #         iou_metric.update(pred_mask, ground_truth)
-
-    #     mean_iou = iou_metric.compute().item()
-    #     iou_metric.reset() # Resetting
-    #     return mean_iou
-      
-
-    def plot_prediction_overlay(self, i, alpha=0.5):
-        """
-        Plots the original image with the predicted segmentation mask overlaid.
-        Args:
-        - i (int): Index of the image in the dataset.
-        - alpha (float): Transparency level for the overlay (0 = only image, 1 = only mask).
-        """
-        # Getitng the predicted mask
-        pred_mask, ground_truth = self.predict(i)
-        # Convert mask to color
-        pred_mask = pred_mask.cpu().numpy()
-
-        # Getting the original image
-        image_original = self.dataset.original_image(i)
-
-        palette = VisualisationConstants.palette
-        class_colours = VisualisationConstants.class_colors # Dictionary of class index (0, 1, 2): colour
-
-        # Colouring the mask
-        coloured_mask = show.colorise_mask(pred_mask, palette=palette)
-
-        # Create overlay image
-        plt.figure(figsize=(10, 5))
-        plt.imshow(image_original, cmap='gray')
-        plt.imshow(coloured_mask, alpha=alpha)  # Overlay mask with transparency
-
-        # Create legend patches
-        legend_patches = [mpatches.Patch(color=color, label=label) for label, color in zip(["Background", "Cat", "Dog"], VisualisationConstants.class_colors.values())]
-        plt.legend(handles = legend_patches, loc = 'upper right')
-
-        plt.title(f"Prediction Overlay - Image")
-        plt.axis("off")
-        plt.show()
-
-    # def image_fit_summary(self, i, alpha = 0.5):
-    #     '''
-    #     Do some plots and print metrics for single image
-    #     '''
-    #     self.plot_prediction_overlay(i, alpha=alpha)
-
-    #     ### Computing the IoU for this image ####
-    #     iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255).to(self.device)
-    #     pred_mask, ground_truth = self.predict(i)
-
-    #     # ✅ Ensure both tensors are long-type (integer labels)
-    #     pred_mask = pred_mask.to(dtype=torch.long)
-    #     ground_truth = ground_truth.to(dtype=torch.long)
-
-    #     # ✅ Ensure batch dimension (N=1)
-    #     pred_mask = pred_mask.unsqueeze(0)
-    #     ground_truth = ground_truth.unsqueeze(0)
-    #     iou_metric.update(pred_mask, ground_truth)
-    #     iou = iou_metric.compute().item()
-    #     iou_metric.reset() # Resetting
-    #     print(f"IoU on original domain: {iou:.4f}")
-
-    def load_model(self, checkpoint_path):
-        """
-        Loads a saved model checkpoint into the model.
-        Supports loading from local storage and S3.
-
-        Args:
-        - checkpoint_path (str): Local file path or S3 URI to the model checkpoint.
-
-        Returns:
-        - None: Updates the model in-place.
-        """
-        if checkpoint_path.startswith("s3://"):
-            print(f"=> Downloading model from {checkpoint_path}...")
-
-            # Extract S3 bucket and key
-            s3_client = boto3.client("s3", region_name="us-east-1")
-            bucket_name = checkpoint_path.split("/")[2]
-            s3_key = "/".join(checkpoint_path.split("/")[3:])
-
-            # Temporary local file path
-            local_checkpoint = "temp_model.pth"
-            
-            # Download model from S3
-            try:
-                s3_client.download_file(bucket_name, s3_key, local_checkpoint)
-                checkpoint_path = local_checkpoint  # Update path to local file
-                print(f"=> Model downloaded from S3 to {local_checkpoint}")
-            except Exception as e:
-                print(f" Failed to download model from S3: {e}")
-                return
-
-        print(f"=> Loading model from {checkpoint_path}")
-
-        # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        
-        # Load model state dict
-        self.model.load_state_dict(checkpoint["state_dict"])
-        
-        print("=> Model successfully loaded!")
-
-        # Remove temp file if downloaded from S3
-        if checkpoint_path == "temp_model.pth":
-            os.remove(checkpoint_path)
 
 class traininglog():
     @staticmethod
@@ -373,12 +154,90 @@ class traininglog():
                 writer.writeheader()  # Write header only once if file does not exist.
             writer.writerow(kwargs)
 
-class s3utils():
-    @staticmethod
-    def upload_s3(local_file_path, s3_bucket, s3_key):
-        s3_client = boto3.client("s3")
-        try:
-            s3_client.upload_file(local_file_path, s3_bucket, s3_key)
-            print(f"File uploaded to s3://{s3_bucket}/{s3_key}")
-        except Exception as e:
-            print(f"Failed to upload file to S3: {e}")
+
+def create_heatmap(image_shape, point, sigma=10):
+    """
+    Create a Gaussian heatmap centered at the given point.
+
+    Args:
+    image_shape (tuple): Shape of the image (height, width).
+    point (tuple): Coordinates (x, y) of the prompt. Note: x is column index, y is row index.
+    sigma (float): Standard deviation controlling the spread of the heatmap.
+
+    Returns:
+    np.array: A heatmap of shape (height, width) with values in [0, 1].
+    """
+    
+    height, width = image_shape
+    # Create a coordinate grid for the image
+    x_grid, y_grid = np.meshgrid(np.arange(width), np.arange(height))
+    
+    # Calculate the squared distance from the prompt point
+    squared_distance = (x_grid - point[0])**2 + (y_grid - point[1])**2
+    
+    # Create the Gaussian heatmap
+    heatmap = np.exp(-squared_distance / (2 * sigma**2))
+    return heatmap
+
+
+def random_xy(shape, sigma_ratio=0.2):
+    """
+    Sample a random (x, y) point from a 2D Gaussian distribution 
+    centered in the middle of the image.
+
+    :param height: Image height
+    :param width:  Image width
+    :param sigma_ratio: Fraction of the dimension used as std dev 
+                    (e.g., 0.2 means std dev = 20% of dimension)
+    :return: (x, y) coordinates within image bounds
+    """
+    height, width = shape
+    
+    # Mean at the center of the image
+    x_mean, y_mean = width / 2.0, height / 2.0
+    
+    # Standard deviation as a fraction of the dimension
+    x_sigma = sigma_ratio * width
+    y_sigma = sigma_ratio * height
+    
+    # Draw samples from the normal distribution
+    x = int(np.random.normal(x_mean, x_sigma))
+    y = int(np.random.normal(y_mean, y_sigma))
+    
+    # Clamp to valid image bounds
+    x = max(0, min(x, width - 1))
+    y = max(0, min(y, height - 1))
+    
+    return [x, y]
+
+def numpy_image_from(tensor_image):
+    """
+    Convert a tensor image (C, H, W) to a NumPy image (H, W, C) of type uint8.
+    
+    Assumes:
+      - The tensor is in the format (C, H, W)
+      - If the values are in [0, 1], they will be scaled to [0, 255].
+      
+    Parameters:
+      tensor_image (torch.Tensor): The input image.
+      
+    Returns:
+      np.ndarray: The image in (H, W, C) format with dtype uint8.
+    """
+
+    # If it's a torch tensor, bring it to CPU and detach it.
+    if isinstance(tensor_image, torch.Tensor):
+        np_img = tensor_image.cpu().detach().numpy()
+    else:
+        raise ValueError('Input image is not tensor')
+
+    # Convert from channel first to channel last
+    np_img = np.transpose(np_img, (1, 2, 0))
+    
+    # If the image values are in the range [0, 1], scale them to [0, 255]
+    if np_img.max() <= 1.0:
+        np_img = np_img * 255
+    
+    # Clip values and convert to uint8
+    np_img = np.clip(np_img, 0, 255).astype(np.uint8)
+    return np_img

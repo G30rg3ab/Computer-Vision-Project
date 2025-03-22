@@ -1,4 +1,5 @@
 import torchvision.transforms.functional as TF
+from decorator import decorator
 from torchmetrics.classification import JaccardIndex
 from tqdm import tqdm
 import torch
@@ -58,7 +59,19 @@ class CVDatasetPredictions():
         self.iou_metric.reset()
         return mean_iou
     
+def inverse_resize_mask(mask, height, width):
+    """
+    function that resizes the predicted mask back
+    to the original dimensions
+    """
     
+    # Inverse resize the predicted mask to original dimensions using nearest neighbor interpolation
+    mask_original_domain = TF.resize(mask, (height, width), interpolation=TF.InterpolationMode.NEAREST)
+    mask_original_domain = mask_original_domain.squeeze(0)  # remove batch dimension
+
+    return mask_original_domain
+
+
 def predict(image, model, device="cuda" if torch.cuda.is_available() else "cpu"):
     '''
     Function that makes a predicted mask from the input image.
