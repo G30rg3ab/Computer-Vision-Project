@@ -12,10 +12,11 @@ class VisualisationConstants():
     # Define class colors
 
     class_colors = {
-        0: "thistle",  # Background
-        1: "red",     # Cat
-        2: "green"    # Dog
+        0: "red",  # Background
+        1: "green",     # Cat
+        2: "blue"    # Dog
     }
+
     # Create a color palette dynamically from class_colors
     palette = np_.zeros((256, 3), dtype=np_.uint8)
     for class_id, hex_color in class_colors.items():
