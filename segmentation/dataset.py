@@ -146,5 +146,5 @@ class PointDataset(CVDataset):
             heatmap = heatmap.unsqueeze(0)  # shape (1, H, W)
             return cat([image, heatmap], dim=0), mask
 
-        return image, mask, heatmap
+        return image, mask, heatmap.unsqueeze(0)
     

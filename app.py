@@ -19,7 +19,7 @@ valid_aug = preprocessing.get_validation_augmentation()
 # Loading the model here
 unet_model = UNET(4, 2)
 unet_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model.pth', unet_model)
+model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model (3).pth', unet_model)
 
 # Getting device & sending model to device
 device="cuda" if torch.cuda.is_available() else "cpu"
@@ -29,6 +29,7 @@ unet_model.to(device)
 def predict_mask(image):
     with torch.no_grad():
         pred_logits = unet_model(image.unsqueeze(0))
+        print(f'pred logits has shape {pred_logits.shape}')
         pred_mask = torch.argmax(pred_logits, dim=1)
     return pred_mask
 
@@ -63,7 +64,7 @@ def on_pixel_select(uploaded_image, event: gr.SelectData):
     image_W = image.shape[1]
     image_H = image.shape[0]
 
-    heatmap = create_heatmap((image_H, image_W), keypoint[0], sigma = 10)
+    heatmap = create_heatmap((image_H, image_W), keypoint[0])
 
     # Preprocessing
     sample = preproc(image = image, heatmap = heatmap)
