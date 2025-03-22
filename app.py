@@ -17,7 +17,7 @@ preproc = preprocessing.get_preprocessing(preprocessing_fn=None)
 valid_aug = preprocessing.get_validation_augmentation()
 
 # Loading the model here
-unet_model = UNET(4, 3)
+unet_model = UNET(4, 2)
 unet_model.eval()
 model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model.pth', unet_model)
 
