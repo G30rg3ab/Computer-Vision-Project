@@ -118,14 +118,19 @@ class model_utils():
         pass
 
     @staticmethod
-    def save_checkpoint(checkpoint, filename="final_model.pth", s3_bucket=None, s3_key=None):
+    def save_checkpoint(checkpoint, filename="final_model.pth"):
         """
         Save the trained model along with metadata for experiment tracking.
-        Optionally upload the model to an S3 bucket.
         """
         # **Step 1: Save model to file**
         torch.save(checkpoint, filename)
         print(f"=> Final model and metadata saved to {filename}")
+        
+    @staticmethod
+    def return_checkpoint_from(checkpoint_path):
+        print(f'=> Fetching checkpoint from {checkpoint_path}')
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), weights_only=False)
+        return checkpoint
     
     @staticmethod
     def load_checkpoint(checkpoint_path, model):

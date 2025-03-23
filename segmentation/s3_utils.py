@@ -2,57 +2,75 @@ import torch
 import boto3
 import os
 
-def load_model(self, checkpoint_path):
+def download_from_s3(s3_uri):
+    if s3_uri.startswith("s3://"):
+        
+        # Parse the S3 URI into bucket and object key
+        uri_parts = s3_uri.split("/")
+        s3_bucket = uri_parts[2]
+        s3_object_key = "/".join(uri_parts[3:])
+        
+        # Create a safe local file path using only the basename of the object key
+        local_file_path = os.path.basename(s3_object_key)
+        
+        # Create S3 client (update region if needed)
+        s3_client = boto3.client("s3", region_name="us-east-1")
+        try:
+            s3_client.download_file(s3_bucket, s3_object_key, local_file_path)
+            # Optionally, update s3_uri to local file path for downstream use
+            s3_uri = local_file_path  
+            print(f"=> Model downloaded from S3 to {local_file_path}")
+        except Exception as e:
+            print(f"No files downloaded from s3")
+            return None
+
+
+def upload_file_to_s3(local_file_path, s3_target_dir):
     """
-    Loads a saved model checkpoint into the model.
-    Supports loading from local storage and S3.
+    Upload a local file to an S3 target directory, preserving its local filename.
 
     Args:
-    - checkpoint_path (str): Local file path or S3 URI to the model checkpoint.
+        local_file_path (str): Path to the local file.
+        s3_target_dir (str): S3 target directory in the format "s3://bucket-name/path/to/dir".
 
     Returns:
-    - None: Updates the model in-place.
+        str or None: The full S3 URI if the upload is successful, or None otherwise.
     """
-    if checkpoint_path.startswith("s3://"):
-        print(f"=> Downloading model from {checkpoint_path}...")
+    if not s3_target_dir.startswith("s3://"):
+        print("Target path is not an S3 URI. No upload performed.")
+        return None
 
-        # Extract S3 bucket and key
-        s3_client = boto3.client("s3", region_name="us-east-1")
-        bucket_name = checkpoint_path.split("/")[2]
-        s3_key = "/".join(checkpoint_path.split("/")[3:])
+    print(f"=> Uploading file to {s3_target_dir}...")
 
-        # Temporary local file path
-        local_checkpoint = "temp_model.pth"
-        
-        # Download model from S3
-        try:
-            s3_client.download_file(bucket_name, s3_key, local_checkpoint)
-            checkpoint_path = local_checkpoint  # Update path to local file
-            print(f"=> Model downloaded from S3 to {local_checkpoint}")
-        except Exception as e:
-            print(f" Failed to download model from S3: {e}")
-            return
+    # Extract bucket and prefix from the S3 URI
+    parts = s3_target_dir.split("/")
+    bucket_name = parts[2]
+    prefix = "/".join(parts[3:])
+    if prefix and not prefix.endswith("/"):
+        prefix += "/"
 
-    print(f"=> Loading model from {checkpoint_path}")
+    # Get the local filename and build the S3 key
+    filename = os.path.basename(local_file_path)
+    s3_key = prefix + filename
+    print(f"Bucket: {bucket_name}")
+    print(f"S3 key: {s3_key}")
 
-    # Load checkpoint
-    checkpoint = torch.load(checkpoint_path, map_location=self.device)
-    
-    # Load model state dict
-    self.model.load_state_dict(checkpoint["state_dict"])
-    
-    print("=> Model successfully loaded!")
-
-    # Remove temp file if downloaded from S3
-    if checkpoint_path == "temp_model.pth":
-        os.remove(checkpoint_path)
-
-
-
-def upload_s3(local_file_path, s3_bucket, s3_key):
-    s3_client = boto3.client("s3")
+    # Create the S3 client (adjust region if necessary)
+    s3_client = boto3.client("s3", region_name="us-east-1")
     try:
-        s3_client.upload_file(local_file_path, s3_bucket, s3_key)
-        print(f"File uploaded to s3://{s3_bucket}/{s3_key}")
+        s3_client.upload_file(local_file_path, bucket_name, s3_key)
+        full_s3_uri = f"s3://{bucket_name}/{s3_key}"
+        print(f"=> File uploaded to {full_s3_uri}")
+        return full_s3_uri
     except Exception as e:
         print(f"Failed to upload file to S3: {e}")
+        return None
+    
+def upload_experiment_files(experiment_name, train_log_file, checkpoint_file):
+    upload_file_to_s3(train_log_file, f's3://computer-vision-state-dictionaries/{experiment_name}')
+    upload_file_to_s3(checkpoint_file, f's3://computer-vision-state-dictionaries/{experiment_name}')
+
+def dowload_expirement_files(experiment_name, train_log_file, checkpoint_file):
+    download_from_s3(f's3://computer-vision-state-dictionaries/{experiment_name}/{checkpoint_file}')
+    download_from_s3(f's3://computer-vision-state-dictionaries/{experiment_name}/{train_log_file}')
+
