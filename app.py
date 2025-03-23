@@ -18,9 +18,9 @@ preproc = preprocessing.get_preprocessing(preprocessing_fn=None)
 valid_aug = preprocessing.get_validation_augmentation()
 
 # Loading the model here
-unet_model = UNET(4, 4)
+unet_model = UNET(4, 3)
 unet_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-7.pth', unet_model)
+model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-8.pth', unet_model)
 
 # mid_fusion_model = MidFusionUNET()
 # mid_fusion_model.eval()

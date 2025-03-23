@@ -103,27 +103,24 @@ class PointDataset(CVDataset):
     def __filter_mask_clicked(self, mask, prompt_point):
         '''
         0: not-clicked
-        1: pet-clicked
-        2: background-clicked
+        1: clicked
         '''
+
+        mask_filtered = mask.copy()
 
         x = int(prompt_point[0])
         y = int(prompt_point[1])
 
+        # Changing border 255 to 0
+        mask_filtered[(mask_filtered == 255) ] = 0
 
-        # Changing dog and cat to 1
-        mask[(mask == 1) | (mask == 2)] = 1
+        # Getting the clicked object in [0, 1, 2]
+        object_clicked = mask_filtered[y, x]
 
-        # Changing background or border [0, 255] to 2
-        mask[(mask == 0) | (mask == 255) ] = 2
+        # Changing non-clicked regions to 0 and clicked regions to 1
+        mask_filtered = np.where(mask_filtered == object_clicked, 1, 0)
 
-        # Getting the clicked object in [1, 2]
-        object_clicked = mask[y, x]
-        # Changing non-clicked regions to 0
-        filtered_mask = np.where(mask == object_clicked, object_clicked, 0)
-
-
-        return filtered_mask
+        return mask_filtered
 
     def __getitem__(self, i):
         image = self.original_image(i)
