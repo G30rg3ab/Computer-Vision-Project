@@ -1,7 +1,7 @@
 import gradio as gr
 import torch
 from torch import cat
-
+import numpy as np
 # Custom imports
 from segmentation.utils import preprocessing, create_heatmap
 from segmentation.show import colorise_mask
@@ -18,26 +18,26 @@ preproc = preprocessing.get_preprocessing(preprocessing_fn=None)
 valid_aug = preprocessing.get_validation_augmentation()
 
 # Loading the model here
-unet_model = UNET(4, 2)
+unet_model = UNET(4, 4)
 unet_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model (3).pth', unet_model)
+model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-7.pth', unet_model)
 
-mid_fusion_model = MidFusionUNET()
-mid_fusion_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-5.pth', mid_fusion_model)
+# mid_fusion_model = MidFusionUNET()
+# mid_fusion_model.eval()
+# model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-5.pth', mid_fusion_model)
 
 # Getting device & sending model to device
 device="cuda" if torch.cuda.is_available() else "cpu"
 unet_model.to(device)
-mid_fusion_model.to(device).double()
+# mid_fusion_model.to(device).double()
 
-def predict_mid_fusion(image, heatmap):
-    with torch.no_grad():
-        image = image.unsqueeze(0)
-        heatmap = heatmap.unsqueeze(0)
-        pred_logits = mid_fusion_model(image.double(), heatmap.double())
-        pred_mask = torch.argmax(pred_logits, dim=1)
-    return pred_mask
+# def predict_mid_fusion(image, heatmap):
+#     with torch.no_grad():
+#         image = image.unsqueeze(0)
+#         heatmap = heatmap.unsqueeze(0)
+#         pred_logits = mid_fusion_model(image.double(), heatmap.double())
+#         pred_mask = torch.argmax(pred_logits, dim=1)
+#     return pred_mask
 
 # Function to predict 
 def predict_mask(image):
@@ -88,16 +88,18 @@ def on_pixel_select(uploaded_image, event: gr.SelectData):
     print('image has shape: ', image.shape)
     print('heatmap has shape: ', heatmap.shape)
 
-    # model_input = cat([image, heatmap], dim=0)
-    # model_input = model_input.float()
-    # pred_mask = predict_mask(model_input)
+    model_input = cat([image, heatmap], dim=0) 
+    model_input = model_input.float()
+    pred_mask = predict_mask(model_input)
 
-    predict_mask = predict_mid_fusion(image, heatmap)
+    # pred_mask = predict_mid_fusion(image, heatmap)
 
-    mask = inverse_resize_mask(predict_mask, original_H, original_W)
+    mask = inverse_resize_mask(pred_mask, original_H, original_W)
 
     # converting the mask to numpy
     mask = mask.detach().cpu().numpy()
+
+    print('mask has values:', np.unique(mask, return_counts=True))
 
     # Convert the predicted mask to a 3-channel image
     colour_mask = colorise_mask(mask, pallete)

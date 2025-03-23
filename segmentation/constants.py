@@ -14,7 +14,7 @@ class VisualisationConstants():
     class_colors = {
         0: "red",  # Background
         1: "green",     # Cat
-        2: "blue"    # Dog
+        2: "blue",   # Dog
     }
 
     # Create a color palette dynamically from class_colors
