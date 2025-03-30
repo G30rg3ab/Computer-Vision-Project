@@ -134,8 +134,8 @@ class PointDataset(CVDataset):
         # Getting which pixels are in the image
         unique_pixels = np.unique(mask)
         non_border_pxiels = np.sort(unique_pixels[unique_pixels != 255])
-        index = np.random.choice(non_border_pxiels)
-        object = unique_pixels[index]
+
+        object = np.random.choice(non_border_pxiels)
 
         class_coords = np.argwhere(mask == object)
         idx = np.random.choice(len(class_coords))
