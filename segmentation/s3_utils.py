@@ -66,11 +66,4 @@ def upload_file_to_s3(local_file_path, s3_target_dir):
         print(f"Failed to upload file to S3: {e}")
         return None
     
-def upload_experiment_files(experiment_name, train_log_file, checkpoint_file):
-    upload_file_to_s3(train_log_file, f's3://computer-vision-state-dictionaries/{experiment_name}')
-    upload_file_to_s3(checkpoint_file, f's3://computer-vision-state-dictionaries/{experiment_name}')
-
-def dowload_expirement_files(experiment_name, train_log_file, checkpoint_file):
-    download_from_s3(f's3://computer-vision-state-dictionaries/{experiment_name}/{checkpoint_file}')
-    download_from_s3(f's3://computer-vision-state-dictionaries/{experiment_name}/{train_log_file}')
 

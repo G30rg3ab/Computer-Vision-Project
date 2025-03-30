@@ -20,7 +20,7 @@ valid_aug = preprocessing.get_validation_augmentation()
 # Loading the model here
 unet_model = UNET(4, 2)
 unet_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-14.pth', unet_model)
+model_utils.load_checkpoint('best_checkpoint.pth', unet_model)
 
 # mid_fusion_model = MidFusionUNET()
 # mid_fusion_model.eval()
@@ -29,17 +29,7 @@ model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/final_model-14.pth
 # Getting device & sending model to device
 device="cuda" if torch.cuda.is_available() else "cpu"
 unet_model.to(device)
-# mid_fusion_model.to(device).double()
-
-# def predict_mid_fusion(image, heatmap):
-#     with torch.no_grad():
-#         image = image.unsqueeze(0)
-#         heatmap = heatmap.unsqueeze(0)
-#         pred_logits = mid_fusion_model(image.double(), heatmap.double())
-#         pred_mask = torch.argmax(pred_logits, dim=1)
-#     return pred_mask
-
-# Function to predict 
+ 
 def predict_mask(image):
     with torch.no_grad():
         pred_logits = unet_model(image.unsqueeze(0))

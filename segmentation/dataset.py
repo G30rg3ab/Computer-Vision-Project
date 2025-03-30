@@ -111,36 +111,56 @@ class PointDataset(CVDataset):
         x = int(prompt_point[0])
         y = int(prompt_point[1])
 
-        # Changing border 255 to 0
-        mask_filtered[(mask_filtered == 255) ] = 0
-
         # Getting the clicked object in [0, 1, 2]
         object_clicked = mask_filtered[y, x]
 
-        # Changing non-clicked regions to 0 and clicked regions to 1
-        mask_filtered = np.where(mask_filtered == object_clicked, 1, 0)
+        # Object-clicked mask
+        object_clicked_mask = (object_clicked == mask)
+        # Border mask
+        border_mask = (mask == 255)
+        # Object not clicked mask
+        not_clicked_mask = ~ (object_clicked_mask | border_mask)
+
+        mask_filtered[object_clicked_mask] = 1
+        mask_filtered[not_clicked_mask]    = 0
 
         return mask_filtered
+    
+    def __sample_prompt(self, mask, p = 0.5):
+        '''
+        sample from object with probability p
+        sample from background with probability 1-p
+        '''
+        # Getting which pixels are in the image
+        unique_pixels = np.unique(mask)
+        non_border_pxiels = np.sort(unique_pixels[unique_pixels != 255])
+        index = 1 if np.random.random() < p else 0
+        object = unique_pixels[index]
+
+        class_coords = np.argwhere(mask == object)
+        idx = np.random.choice(len(class_coords))
+        prompt_point =  class_coords[idx].astype(int)
+        # Changing to x, y
+        x = int(prompt_point[1])
+        y = int(prompt_point[0])
+
+        return [x, y]
+
 
     def __getitem__(self, i):
         image = self.original_image(i)
         mask = self.original_mask(i)
+        keypoints = []
+        while not keypoints:
+            # Getting the prompt-point
+            prompt_point = self.prompt_points[i] if self.prompt_points else self.__sample_prompt(mask)
 
-        # Getting the prompt-point
-        prompt_point = self.prompt_points[i] if self.prompt_points else random_xy(mask.shape)
-
-        if self.augmentation:
-            # Apply the augmentation while passing the prompt point as a keypoint to keep track of position during augment
-            sample = self.augmentation(image = image, mask = mask, keypoints = [prompt_point])
-            image, mask, keypoints = sample['image'], sample['mask'], sample['keypoints']
-
-        if not keypoints:
-            resized_w = mask.shape[1]
-            resized_h = mask.shape[0]
-            keypoints = [[resized_w//2, resized_h//2]]
+            if self.augmentation:
+                # Apply the augmentation while passing the prompt point as a keypoint to keep track of position during augment
+                sample = self.augmentation(image = image, mask = mask, keypoints = [prompt_point])
+                image, mask, keypoints = sample['image'], sample['mask'], sample['keypoints']
 
         prompt_point_post_aug = keypoints[0]
-
         heatmap = create_heatmap(mask.shape, prompt_point_post_aug)
 
         # Filtering the mask based on where the prompt point is
@@ -154,5 +174,5 @@ class PointDataset(CVDataset):
             heatmap = heatmap.unsqueeze(0)  # shape (1, H, W)
             return cat([image, heatmap], dim=0), mask
 
-        return image, mask, heatmap.unsqueeze(0)
+        return image, mask, heatmap
     
