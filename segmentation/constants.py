@@ -17,6 +17,10 @@ class VisualisationConstants():
         2: "blue",   # Dog
     }
 
+    point_colours = {
+        1: 'green'
+    }
+
     # Create a color palette dynamically from class_colors
     palette = np_.zeros((256, 3), dtype=np_.uint8)
     for class_id, hex_color in class_colors.items():
@@ -24,6 +28,12 @@ class VisualisationConstants():
         palette[class_id] = [int(r * 255), int(g * 255), int(b * 255)]  # Convert to 0-255 scale
 
     palette[255] = [255, 255, 255]  # Ignore index - White
+
+    pallete_point = np_.zeros((256, 3), dtype=np_.uint8)
+    for class_id, hex_color in point_colours.items():
+        r, g, b = mcolors.hex2color(hex_color)  # Convert hex to (0-1) range
+        pallete_point[class_id] = [int(r * 255), int(g * 255), int(b * 255)]  # Convert to 0-255 scale
+
 
 @dataclass
 class BucketConstants():

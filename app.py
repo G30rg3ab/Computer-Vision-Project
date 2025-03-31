@@ -10,7 +10,7 @@ from models.mid_fusion_unet import MidFusionUNET
 from segmentation.utils import model_utils
 from segmentation.eval import inverse_resize_mask
 from segmentation.constants import VisualisationConstants
-pallete = VisualisationConstants.palette
+pallete = VisualisationConstants.pallete_point
 import cv2
 
 # Get the preprocessing
@@ -20,7 +20,7 @@ valid_aug = preprocessing.get_validation_augmentation()
 # Loading the model here
 unet_model = UNET(4, 2)
 unet_model.eval()
-model_utils.load_checkpoint('best_checkpoint.pth', unet_model)
+model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/best_model.pth', unet_model)
 
 # mid_fusion_model = MidFusionUNET()
 # mid_fusion_model.eval()
