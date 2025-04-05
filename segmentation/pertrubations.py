@@ -1,7 +1,7 @@
 import numpy as np
 import albumentations as albu
 import cv2
-PYTORCH_ENABLE_MPS_FALLBACK=1
+
 
 # pertrubation a
 class CustomGaussianNoise(albu.ImageOnlyTransform):
