@@ -1,2 +1,0 @@
-epoch,train_loss,val_loss,mean_iou,accuracy,dice
-1,0.7424252786603914,0.7291348680205967,0.28179,0.52538,0.4142
