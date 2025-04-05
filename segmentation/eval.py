@@ -1,17 +1,15 @@
 import torchvision.transforms.functional as TF
-from decorator import decorator
-from torchmetrics.classification import JaccardIndex
+from segmentation.metrics import *
 from tqdm import tqdm
 import torch
+
 
 class CVDatasetPredictions():
 
     def __init__(self, dataset, device = 'cpu'):
         self.dataset = dataset
         self.device  = device
-            
-        self.iou_metric = JaccardIndex(task="multiclass", num_classes=3, ignore_index=255)
-        self.iou_metric = self.iou_metric.to(self.device)  # Ensure correct device
+
     
     def set_prediction_fn(self, predict_fn, **kwargs):
         """
@@ -40,7 +38,9 @@ class CVDatasetPredictions():
 
         return mask_original_domain
     
-    def mean_IoU(self, progress_bar = False):
+    def mean_IoU(self,classes = [0, 1, 2], progress_bar = False):
+
+        iou_metric = IOU(classes = classes)
         loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
@@ -52,13 +52,53 @@ class CVDatasetPredictions():
             ground_truth = ground_truth.to(self.device)
 
             # Updating the iou metric
-            self.iou_metric.update(pred_mask, ground_truth)
+            iou_metric.update(pred_mask, ground_truth)
 
-        mean_iou = self.iou_metric.compute().item()
+        mean_iou = iou_metric.compute()
         # Resetting the metric
-        self.iou_metric.reset()
+        iou_metric.reset()
         return mean_iou
     
+    def dice_socre(self, classes = [0,1, 2], progress_bar = False):
+        dice_metric = Dice(classes = classes)
+        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        for i in loop:
+            # Getting the prediction
+            pred_mask = self.predict(i)
+
+            # Getting the original mask
+            ground_truth = self.dataset.original_mask(i)
+            ground_truth = torch.from_numpy(ground_truth)
+            ground_truth = ground_truth.to(self.device)
+
+            # Updating the dice metric
+            dice_metric.update(pred_mask, ground_truth)
+
+        dice = dice_metric.compute()
+        # Resetting the metric
+        dice_metric.reset()
+        return dice
+    
+    def compute_accuracy(self, ignore_class = 255, progress_bar = False):
+        accuracy_metric = Accuracy(ignore_class=ignore_class)
+        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        for i in loop:
+            # Getting the prediction
+            pred_mask = self.predict(i)
+
+            # Getting the original mask
+            ground_truth = self.dataset.original_mask(i)
+            ground_truth = torch.from_numpy(ground_truth)
+            ground_truth = ground_truth.to(self.device)
+
+            # Updating the dice metric
+            accuracy_metric.update(pred_mask, ground_truth)
+
+        acc = accuracy_metric.compute()
+        # Resetting the metric
+        accuracy_metric.reset()
+        return acc
+
 def inverse_resize_mask(mask, height, width):
     """
     function that resizes the predicted mask back
