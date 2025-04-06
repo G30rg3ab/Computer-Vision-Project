@@ -55,7 +55,7 @@ class preprocessing():
         train_transform = [
             albu.RandomCrop(256, 416, pad_if_needed=True, border_mode=cv2.BORDER_REFLECT),
             albu.HorizontalFlip(p=0.5),
-            albu.Affine(translate_percent=(-0.05, 0.05),  scale=(0.95, 1.05), rotate=(-15, 15),p=0.0,border_mode=0,fill_mask=255),
+            albu.Affine(translate_percent=(-0.05, 0.05),  scale=(0.95, 1.05), rotate=(-15, 15),p=0.2,border_mode=cv2.BORDER_REFLECT,fill_mask=255),
             albu.OneOf([
                     albu.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=1),
                     albu.CLAHE(p=1),
