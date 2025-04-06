@@ -84,3 +84,90 @@ class CustomScaling(albu.ImageOnlyTransform):
         
         # Convert back to unsigned 8-bit integer type
         return scaled.astype(np.uint8)
+    
+# pertubation e
+def increase_brightness(image, factor): 
+    '''
+    Inputs: 
+    Image: Image to apply image brightness to as a numpy array with shape (H, W, 3)
+    Factor: Number to add to each pixel by 
+
+    Output: 
+    Brightened images 
+    '''
+
+    # Add brightness
+    brightened = image + factor
+
+    # Clip to keep values in a valid range
+    brightened = np.clip(brightened, 0, 255)
+
+    return brightened.astype(image.dtype)
+
+# pertubation f 
+def decrease_brightness(image, factor):
+    '''
+    Inputs 
+    Image: Image to apply brightness decrease to as numpy array with shape (H,W,3)
+    Factor: number to subtract from each pixel
+
+    Outputs: 
+    Decreased brightness image 
+    '''
+
+    # Decrease brightness
+    changed = image - factor 
+
+    # Clip to keep values in a valid range
+    changed = np.clip(changed, 0, 255)
+
+    return changed.astype(image.dtype)
+
+# pertubation g
+def occlusion(image, size):
+    '''
+    Inputs 
+    Image: Image to apply occlusion to with shape (H, W, 3)
+    size: size of the squre 
+
+    Output:
+    image with occlusion applied 
+    '''
+
+    # Get image dimensions
+    height, width, _ = image.shape
+    
+    # Ensure that the square fits within the image
+    max_x = width - size
+    max_y = height - size
+
+    # Choose a random top-left corner for the square
+    top_left_x = random.randint(0, max_x)
+    top_left_y = random.randint(0, max_y)
+    
+    # Replace the chosen square region with black pixels (0)
+    image[top_left_y:top_left_y + size, top_left_x:top_left_x + size] = 0
+    
+    return image
+
+
+# pertubation h 
+def add_salt_and_pepper_noise(image, noise_level):
+    '''
+    Inputs:
+    image: A numpy array of shape (H, W, 3) representing the image.
+    noise_level: strength of salt and pepper noise
+
+    Output:
+    image: The image with salt and pepper noise added.
+    '''
+    # Choose a random noise level from the provided list
+    noise_level = random.choice(noise_level)
+    
+    # Add salt and pepper noise to the image
+    noisy_image = random_noise(image, mode='s&p', amount=noise_level)
+    
+    # Convert the noisy image back to the range [0, 255] and ensure it is in uint8 format
+    noisy_image = np.array(255 * noisy_image, dtype=np.uint8)
+    
+    return noisy_image
