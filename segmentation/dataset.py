@@ -89,12 +89,14 @@ class PointDataset(CVDataset):
                 prompt_points = None,
                 augmentation = None,
                 preprocessing = None,
-                concat_heatmap = True
+                concat_heatmap = True,
+                sigma = 15
                 ):
         
         super().__init__(images_fps, masks_fps, augmentation, preprocessing)
         self.prompt_points = prompt_points
         self.concat_heatmap = concat_heatmap
+        self.sigma = sigma
 
         # Checking enough prompt points were provided
         if (prompt_points) and (self.__len__() != len(prompt_points)):
@@ -161,7 +163,7 @@ class PointDataset(CVDataset):
                 image, mask, keypoints = sample['image'], sample['mask'], sample['keypoints']
 
         prompt_point_post_aug = keypoints[0]
-        heatmap = create_heatmap(mask.shape, prompt_point_post_aug)
+        heatmap = create_heatmap(mask.shape, prompt_point_post_aug, sigma=self.sigma)
 
         # Filtering the mask based on where the prompt point is
         mask = self.__filter_mask_clicked(mask, prompt_point_post_aug)
