@@ -1,7 +1,8 @@
 import numpy as np
 import albumentations as albu
 import cv2
-
+import random 
+from skimage.util import random_noise
 
 # pertrubation a
 class CustomGaussianNoise(albu.ImageOnlyTransform):
