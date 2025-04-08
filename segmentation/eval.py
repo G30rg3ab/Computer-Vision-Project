@@ -41,7 +41,7 @@ class CVDatasetPredictions():
     def mean_IoU(self,classes = [0, 1, 2], progress_bar = False):
 
         iou_metric = IOU(classes = classes)
-        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        loop = tqdm(range(self.dataset.__len__()), desc = 'IOU') if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask = self.predict(i)
@@ -61,7 +61,7 @@ class CVDatasetPredictions():
     
     def dice_socre(self, classes = [0,1, 2], progress_bar = False):
         dice_metric = Dice(classes = classes)
-        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        loop = tqdm(range(self.dataset.__len__()), desc = 'Dice') if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask = self.predict(i)
@@ -81,7 +81,7 @@ class CVDatasetPredictions():
     
     def compute_accuracy(self, ignore_class = 255, progress_bar = False):
         accuracy_metric = Accuracy(ignore_class=ignore_class)
-        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        loop = tqdm(range(self.dataset.__len__()), desc = 'Accuracy') if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask = self.predict(i)
