@@ -36,7 +36,7 @@ class CVDatasetPredictions():
         mask_original_domain = TF.resize(output_mask, (height, width), interpolation=TF.InterpolationMode.NEAREST)
         mask_original_domain = mask_original_domain.squeeze(0)
 
-        return mask_original_domain
+        return mask_original_domain.to(self.device)
     
     def mean_IoU(self,classes = [0, 1, 2], progress_bar = False):
 
