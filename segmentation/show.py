@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt_
 import numpy as np_
 import torch as torch_
 import cv2 as cv2_
+import matplotlib.patches as mpatches
 
 def colorise_mask(mask, palette):
     # If mask is a torch tensor, work in torch.
@@ -22,7 +23,7 @@ def colorise_mask(mask, palette):
         raise ValueError("mask must be a torch.Tensor or numpy.ndarray")
 
 # Helper function for data visualisation
-def visualise_data(**images):
+def visualise_data(show = False, **images):
     '''Plot images in one row'''
     import torch
     n = len(images)
@@ -43,6 +44,8 @@ def visualise_data(**images):
         plt_.title(' '.join(name.split('_')).title())
         plt_.imshow(img)
     plt_.show()
+
+
 
 
 def overlay_heatmap(image, heatmap, alpha=0.3, colormap=cv2_.COLORMAP_JET):
@@ -78,3 +81,32 @@ def overlay_heatmap(image, heatmap, alpha=0.3, colormap=cv2_.COLORMAP_JET):
     overlay_rgb = cv2_.cvtColor(overlay_bgr, cv2_.COLOR_BGR2RGB)
     
     return overlay_rgb
+
+def blend_image_and_mask(image, mask, image_weight=0.7, mask_weight=0.3, gamma=0):
+    """
+    Blends an image and a mask using cv2.addWeighted.
+    """
+    # Ensure the image is uint8 and mask is also in the right scale.
+    if image.dtype != np_.uint8:
+        image = cv2_.normalize(image, None, 0, 255, cv2_.NORM_MINMAX).astype(np_.uint8)
+    
+    # If the mask is not in uint8, try to convert it.
+    if mask.dtype != np_.uint8:
+        mask = cv2_.normalize(mask, None, 0, 255, cv2_.NORM_MINMAX).astype(np_.uint8)
+    
+    # Check the mask channels: if it is a single channel, convert it to 3 channels.
+    if len(mask.shape) == 2 or (len(mask.shape) == 3 and mask.shape[2] == 1):
+        mask_color = cv2_.cvtColor(mask, cv2_.COLOR_GRAY2BGR)
+    else:
+        mask_color = mask
+    
+    # Ensure the image and the mask are the same size.
+    if image.shape != mask_color.shape:
+        mask_color = cv2_.resize(mask_color, (image.shape[1], image.shape[0]))
+    
+    # Blend using the specified weights.
+    overlay = cv2_.addWeighted(image, image_weight, mask_color, mask_weight, gamma)
+    
+    return overlay
+
+
