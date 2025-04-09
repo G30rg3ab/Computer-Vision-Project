@@ -122,10 +122,8 @@ class PointDataset(CVDataset):
 
         # Object-clicked mask
         object_clicked_mask = (object_clicked == mask)
-        # Border mask
-        border_mask = (mask == 255)
         # Object not clicked mask
-        not_clicked_mask = ~ (object_clicked_mask | border_mask)
+        not_clicked_mask = ~ (object_clicked_mask)
 
         mask_filtered[object_clicked_mask] = 1
         mask_filtered[not_clicked_mask]    = 0
