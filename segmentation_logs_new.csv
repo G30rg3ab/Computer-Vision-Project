@@ -1,2 +1,0 @@
-epoch,training_loss,validation_loss,mean_iou,accuracy,dice
-1,1.0980180149986631,1.0825883610093074,0.18202,0.33762,0.3031
