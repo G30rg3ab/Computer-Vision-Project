@@ -18,7 +18,11 @@ class VisualisationConstants():
     }
 
     point_colours = {
-        1: 'green'
+        0: "red",  # Background
+        1: "green",     # Cat
+        2: "blue",   # Dog
+        3: 'black', # Not clicked
+        255: 'white' # Border
     }
 
     # Create a color palette dynamically from class_colors
