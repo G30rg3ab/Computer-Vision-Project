@@ -90,13 +90,17 @@ class PointDataset(CVDataset):
                 augmentation = None,
                 preprocessing = None,
                 concat_heatmap = True,
-                sigma = 15
+                sigma = 15,
+                p = 0.5,
+                class_aware = True
                 ):
         
         super().__init__(images_fps, masks_fps, augmentation, preprocessing)
         self.prompt_points = prompt_points
         self.concat_heatmap = concat_heatmap
         self.sigma = sigma
+        self.p = p
+        self.class_aware = class_aware
 
         # Checking enough prompt points were provided
         if (prompt_points) and (self.__len__() != len(prompt_points)):
@@ -118,14 +122,30 @@ class PointDataset(CVDataset):
 
         # Object-clicked mask
         object_clicked_mask = (object_clicked == mask)
-        # Border mask
-        border_mask = (mask == 255)
         # Object not clicked mask
-        not_clicked_mask = ~ (object_clicked_mask | border_mask)
+        not_clicked_mask = ~ (object_clicked_mask)
 
         mask_filtered[object_clicked_mask] = 1
         mask_filtered[not_clicked_mask]    = 0
 
+        return mask_filtered
+    
+    def __filer_mask_multi(self, mask, prompt_point):
+        mask_filtered = mask.copy()
+        x = int(prompt_point[0])
+        y = int(prompt_point[1])
+
+        # Getting the clicked object in [0, 1, 2]
+        object_clicked = mask_filtered[y, x]
+
+        # Object-clicked mask
+        object_clicked_mask = (object_clicked == mask)
+        # Border mask
+        border_mask = (mask == 255)
+        # Object not clicked mask
+        not_clicked_mask = ~ (object_clicked_mask | border_mask)
+        # Setting object not clicked mask to 3
+        mask_filtered[not_clicked_mask] = 3
         return mask_filtered
     
     def __sample_prompt(self, mask, p = 0.5):
@@ -155,7 +175,7 @@ class PointDataset(CVDataset):
         keypoints = []
         while not keypoints:
             # Getting the prompt-point
-            prompt_point = self.prompt_points[i] if self.prompt_points else self.__sample_prompt(mask)
+            prompt_point = self.prompt_points[i] if self.prompt_points else self.__sample_prompt(mask, self.p)
 
             if self.augmentation:
                 # Apply the augmentation while passing the prompt point as a keypoint to keep track of position during augment
@@ -165,8 +185,11 @@ class PointDataset(CVDataset):
         prompt_point_post_aug = keypoints[0]
         heatmap = create_heatmap(mask.shape, prompt_point_post_aug, sigma=self.sigma)
 
-        # Filtering the mask based on where the prompt point is
-        mask = self.__filter_mask_clicked(mask, prompt_point_post_aug)
+        if self.class_aware:
+            # Filtering the mask based on where the prompt point is
+            mask = self.__filer_mask_multi(mask, prompt_point_post_aug)
+        else:
+            mask = self.__filter_mask_clicked(mask, prompt_point_post_aug)
 
         if self.preprocessing:
             sample = self.preprocessing(image = image, mask = mask, heatmap = heatmap)

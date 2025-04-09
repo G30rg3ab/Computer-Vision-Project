@@ -1,0 +1,2 @@
+petrubation_name,parameter_name,parameter,IOU,DICE,ACCURACY
+Gaussian Noise,standard deviation,0,0.79986,0.88493,0.92992

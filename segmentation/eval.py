@@ -2,6 +2,11 @@ import torchvision.transforms.functional as TF
 from segmentation.metrics import *
 from tqdm import tqdm
 import torch
+from segmentation.show import *
+from segmentation.constants import VisualisationConstants
+import cv2
+import os
+
 
 
 class CVDatasetPredictions():
@@ -38,10 +43,62 @@ class CVDatasetPredictions():
 
         return mask_original_domain.to(self.device)
     
+    def plot_segmentation(self, i):
+
+        pred_mask = self.predict(i, **self.predict_kwargs).numpy()
+        colour_pred = colorise_mask(pred_mask, VisualisationConstants.palette)
+
+        image =  self.dataset.original_image(i)
+        if isinstance(image, torch_.Tensor):
+            image = image.numpy()
+
+        original_mask = self.dataset.original_mask(i)
+        if isinstance(original_mask, torch.Tensor):
+            original_mask = original_mask.numpy()
+
+        colour_ground_truth = colorise_mask(original_mask, VisualisationConstants.palette)
+
+        overlay = blend_image_and_mask(image,colour_pred, image_weight=  0.6, mask_weight=0.4)
+
+        visualise_data(original_image = image,
+                        ground_truth = colour_ground_truth,
+                        predicted_mask = colour_pred,
+                        image_overlay_predicted_mask = overlay)
+        
+    
+        
+    def save_segmentation_plot(self, i, folder_prefix= "unet_plots"):
+        # Generate the segmentation plot (this will create and display the figure)
+
+        pred_mask = self.predict(i, **self.predict_kwargs).numpy()
+        colour_pred = colorise_mask(pred_mask, VisualisationConstants.palette)
+
+        image =  self.dataset.original_image(i)
+        if isinstance(image, torch_.Tensor):
+            image = image.numpy()
+
+        original_mask = self.dataset.original_mask(i)
+        if isinstance(original_mask, torch.Tensor):
+            original_mask = original_mask.numpy()
+
+        colour_ground_truth = colorise_mask(original_mask, VisualisationConstants.palette)
+
+        overlay = blend_image_and_mask(image,colour_pred, image_weight=  0.6, mask_weight=0.4)
+
+        folder = f'segmentation_plots/{folder_prefix}_image_{i}/'
+        os.makedirs(folder, exist_ok=True)
+
+
+        plt_.imsave(folder + 'overlay.png', overlay)
+        plt_.imsave(folder + 'ground_truth.png', colour_ground_truth)
+        plt_.imsave(folder + 'predicted_mask.png', colour_pred)
+        plt_.imsave(folder + 'image.png', image)
+
+
     def mean_IoU(self,classes = [0, 1, 2], progress_bar = False):
 
         iou_metric = IOU(classes = classes)
-        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        loop = tqdm(range(self.dataset.__len__()), desc = 'IOU') if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask = self.predict(i)
@@ -61,7 +118,7 @@ class CVDatasetPredictions():
     
     def dice_socre(self, classes = [0,1, 2], progress_bar = False):
         dice_metric = Dice(classes = classes)
-        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        loop = tqdm(range(self.dataset.__len__()), desc = 'Dice') if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask = self.predict(i)
@@ -79,9 +136,10 @@ class CVDatasetPredictions():
         dice_metric.reset()
         return dice
     
+    
     def compute_accuracy(self, ignore_class = 255, progress_bar = False):
         accuracy_metric = Accuracy(ignore_class=ignore_class)
-        loop = tqdm(range(self.dataset.__len__())) if progress_bar else range(self.dataset.__len__())
+        loop = tqdm(range(self.dataset.__len__()), desc = 'Accuracy') if progress_bar else range(self.dataset.__len__())
         for i in loop:
             # Getting the prediction
             pred_mask = self.predict(i)
