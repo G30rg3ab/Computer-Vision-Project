@@ -2,27 +2,25 @@ from dataclasses import dataclass
 import numpy as np_
 import matplotlib.colors as mcolors
 
-
+# Defining a mapping from the natural intensities read in by python
+# to the classes we will use throughout the project
 @dataclass
 class DataSetConstants():
     class_intensitiy_dict = {'background':0, 'cat':38, 'dog':75}
 
 @dataclass
 class VisualisationConstants():
-    # Define class colors
-
+    # Define class colors which we will use in our visualisations
     class_colors = {
         0: "grey",  # Background
         1: "magenta",     # Cat
         2: "cyan",   # Dog
     }
 
+    # Point-based colours
     point_colours = {
-        0: "red",  # Background
-        1: "green",     # Cat
-        2: "blue",   # Dog
-        3: 'black', # Not clicked
-        255: 'white' # Border
+        0: "white",  # not clicked
+        1: "cyan",     # clicked
     }
 
     # Create a color palette dynamically from class_colors

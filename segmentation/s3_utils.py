@@ -1,23 +1,20 @@
 import torch
 import boto3
 import os
+## functions to upload/download files from amazon s3 ##
 
 def download_from_s3(s3_uri):
     if s3_uri.startswith("s3://"):
         
-        # Parse the S3 URI into bucket and object key
         uri_parts = s3_uri.split("/")
         s3_bucket = uri_parts[2]
         s3_object_key = "/".join(uri_parts[3:])
         
-        # Create a safe local file path using only the basename of the object key
         local_file_path = os.path.basename(s3_object_key)
         
-        # Create S3 client (update region if needed)
         s3_client = boto3.client("s3", region_name="us-east-1")
         try:
             s3_client.download_file(s3_bucket, s3_object_key, local_file_path)
-            # Optionally, update s3_uri to local file path for downstream use
             s3_uri = local_file_path  
             print(f"=> Model downloaded from S3 to {local_file_path}")
         except Exception as e:
@@ -27,19 +24,11 @@ def download_from_s3(s3_uri):
 
 def upload_file_to_s3(local_file_path, s3_target_dir):
     """
-    Upload a local file to an S3 target directory, preserving its local filename.
-
-    Args:
-        local_file_path (str): Path to the local file.
-        s3_target_dir (str): S3 target directory in the format "s3://bucket-name/path/to/dir".
-
-    Returns:
-        str or None: The full S3 URI if the upload is successful, or None otherwise.
+    Upload a local file to an S3 target directory, keeping its local filename the same.
     """
     if not s3_target_dir.startswith("s3://"):
         print("Target path is not an S3 URI. No upload performed.")
         return None
-
     print(f"=> Uploading file to {s3_target_dir}...")
 
     # Extract bucket and prefix from the S3 URI

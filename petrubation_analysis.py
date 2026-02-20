@@ -21,29 +21,22 @@ class CustomGaussianNoise(albu.ImageOnlyTransform):
     def __init__(self, sigma=10.0):
         """
         Custom Albumentations transform that applies Gaussian noise.
-        
-        Parameters:
-            sigma (float): Standard deviation of the Gaussian noise.
-            always_apply (bool): If True, the transform is always applied.
-            p (float): Probability of applying the transform.
         """
         super().__init__(p = 1)
         self.sigma = sigma
     
     def apply(self, image, **params):
-        # Convert image to float for precise computation
+        # Convert image to float
         image_float = image.astype(np.float32)
         
-        # Generate Gaussian noise (mean=0, standard deviation=sigma)
+        # Generate Gaussian noise
         noise = np.random.normal(0, self.sigma, image_float.shape)
         
-        # Add the noise to the original image
+        # add the noise to the original image
         noisy_image = image_float + noise
         
-        # Clip values to ensure they remain in the range [0, 255]
+        # cli[pp] values to ensure they remain in the range [0, 255]
         noisy_image = np.clip(noisy_image, 0, 255)
-        
-        # Convert back to unsigned 8-bit integer type
         return noisy_image.astype(np.uint8)
 
 
@@ -53,25 +46,18 @@ class CustomGaussianBlurring(albu.ImageOnlyTransform):
         """
         Custom Albumentations transform that applies Gaussian blurring using a 3x3 Gaussian kernel.
         """
-        # always_apply=True, p=1 means it's always applied with probability 1
         super().__init__(p = 1)
         self.iterations = iterations
     
     def apply(self, image, **params):
-        # Use the 3x3 Gaussian kernel:
-        #   1   2   1
-        #   2   4   2
-        #   1   2   1
-        # scaled by 1/16
         kernel = np.array([[1, 2, 1],
                            [2, 4, 2],
                            [1, 2, 1]], dtype=np.float32) / 16.0
         
-        # Copy the image to avoid modifying the original
         blurred_image = image.copy()
         
-        # Repeatedly convolve the image with the kernel
-        for _ in range(self.iterations):
+        # convolve the image with the kernel
+        for i in range(self.iterations):
             blurred_image = cv2.filter2D(blurred_image, -1, kernel)
         
         return blurred_image
@@ -86,16 +72,16 @@ class CustomScaling(albu.ImageOnlyTransform):
         self.factor = factor
     
     def apply(self, image, **params):
-        # Convert image to float for precise multiplication
+        # image -> float
         image_float = image.astype(np.float32)
         
-        # Multiply each pixel by the factor
+        # scale by facor self.factor
         scaled = image_float * self.factor
         
         # Clip values to ensure they remain in the valid range [0, 255]
         scaled = np.clip(scaled, 0, 255)
         
-        # Convert back to unsigned 8-bit integer type
+        # float -> integer
         return scaled.astype(np.uint8)
     
 # pertubation e
@@ -106,18 +92,13 @@ class CustomBrightness(albu.ImageOnlyTransform):
 
     def apply(self, image, **params):
         '''
-        Inputs: 
-        Image: Image to apply image brightness to as a numpy array with shape (H, W, 3)
-        Factor: Number to add to each pixel by 
-
-        Output: 
         Brightened images 
         '''
 
-        # Add brightness
+        # add brightness by constant factor
         brightened = image + self.factor
 
-        # Clip to keep values in a valid range
+        # clip to keep values in a valid range
         brightened = np.clip(brightened, 0, 255)
 
         return brightened.astype(image.dtype)
@@ -163,9 +144,6 @@ class CustomSaltAndPepperNoise(albu.ImageOnlyTransform):
     def __init__(self, noise_level=0.0):
         """
         Custom Albumentations transform that adds salt and pepper noise with a specific amount.
-        
-        Parameters:
-            noise_level (float): Amount of salt & pepper noise to apply (0.0 to 1.0).
         """
         super().__init__(p=1)
         self.noise_level = noise_level
@@ -181,13 +159,12 @@ class CustomSaltAndPepperNoise(albu.ImageOnlyTransform):
         noisy_image = np.clip(noisy_image * 255, 0, 255).astype(np.uint8)
         return noisy_image
     
-from dataclasses import dataclass
-from typing import Type, List, Union
 
 from dataclasses import dataclass
 from typing import List, Union, Type
-import albumentations as albu
 
+
+# Configuration for a permutation application
 @dataclass
 class PerturbationConfig:
     name: str

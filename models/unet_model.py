@@ -2,13 +2,16 @@ import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
 
+
+
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
             nn.Sequential(
-                # Bias is false because we use BatchNorm
                 nn.Conv2d(in_channels, out_channels, 3, 1, 1, bias=False),
+                # Applyinh batch norm (not in the original unet paper but works well)
+                # this is also why we dont use bias
                 nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_channels, out_channels, 3, 1, 1, bias=False),
@@ -23,16 +26,19 @@ class DoubleConv(nn.Module):
 class UNET(nn.Module):
     def __init__(self, in_channels = 3, out_channels = 3, features = [64, 128, 256, 512]):
         super(UNET, self).__init__()
+        # upsampling part
         self.ups = nn.ModuleList()
+        # downsampling part
         self.downs = nn.ModuleList()
+        # pooling
         self.pool = nn.MaxPool2d(kernel_size=2, stride = 2)
 
-        # Down part of UNET
+        # Contracting part of the unet architecture
         for feature in features:
             self.downs.append(DoubleConv(in_channels, feature))
             in_channels = feature
 
-        # Up part of UNET
+        # expanding part of the unet architecture
         for feature in reversed(features):
             self.ups.append(
                 nn.ConvTranspose2d(feature * 2, feature, kernel_size=2, stride=2)
@@ -49,7 +55,7 @@ class UNET(nn.Module):
             skip_connections.append(x)
             x = self.pool(x)
         x = self.bottleneck(x)
-        # reversing
+        # reversing the order now 
         skip_connections = skip_connections[::-1]
 
         for idx in range(0, len(self.ups), 2):
@@ -63,16 +69,5 @@ class UNET(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         return self.final_conv(x)
-
-def test():
-    x = torch.randn((16, 3, 161, 161))
-    model = UNET(in_channels=3, out_channels=3)
-    preds = model(x)
-    print(preds.shape)
-    print(x.shape)
-    assert preds.shape == x.shape
-
-if __name__ == '__main__':
-    test()
 
     

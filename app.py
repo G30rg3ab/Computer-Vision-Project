@@ -20,7 +20,7 @@ valid_aug = preprocessing.get_validation_augmentation()
 # Loading the model here
 unet_model = UNET(4, 2)
 unet_model.eval()
-model_utils.load_checkpoint('/Users/georgeboutselis/Downloads/best_model.pth', unet_model)
+model_utils.load_checkpoint('best_model.pth', unet_model)
 
 # mid_fusion_model = MidFusionUNET()
 # mid_fusion_model.eval()
@@ -68,7 +68,7 @@ def on_pixel_select(uploaded_image, event: gr.SelectData):
     image_W = image.shape[1]
     image_H = image.shape[0]
 
-    heatmap = create_heatmap((image_H, image_W), keypoint[0])
+    heatmap = create_heatmap((image_H, image_W), keypoint[0], sigma=15)
 
     # Preprocessing
     sample = preproc(image = image, heatmap = heatmap)
@@ -96,7 +96,7 @@ def on_pixel_select(uploaded_image, event: gr.SelectData):
 
     print(f'colour mask has shape {colour_mask.shape}')
     overlay = cv2.addWeighted(uploaded_image.copy(), 0.7, colour_mask.astype('uint8'), 0.3, 0)
-
+    cv2.circle(overlay, (int(selected_pixel[0]), int(selected_pixel[1])), radius=5, color=(0, 0, 255))
     return gr.update(value=overlay)
 
 with gr.Blocks() as demo:
@@ -118,7 +118,7 @@ with gr.Blocks() as demo:
         outputs = image
     )
 
-    # Attach the callback so that when the image is changed (uploaded), on_upload is called.
+    # Attach the callback so that when the image is changed on_upload is called
     image.upload(fn = on_upload, inputs = image, outputs = original_image_state)
 
 if __name__ == "__main__":

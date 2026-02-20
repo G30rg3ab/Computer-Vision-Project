@@ -11,7 +11,12 @@ import os
 
 class CVDatasetPredictions():
 
+
     def __init__(self, dataset, device = 'cpu'):
+        '''
+        Dataset evaluation class, takes in dataset of type CVDataset (or child class of this)
+        and peforms evaluations on the dataset on the original domain.
+        '''
         self.dataset = dataset
         self.device  = device
 
@@ -19,10 +24,6 @@ class CVDatasetPredictions():
     def set_prediction_fn(self, predict_fn, **kwargs):
         """
         Sets the prediction function and additional arguments.
-
-        Args:
-            predict_fn (callable): A function that takes inputs and returns predictions.
-            **kwargs: Additional keyword arguments needed for prediction.
         """
         self.predict_fn = predict_fn
         self.predict_kwargs = kwargs  # Store extra parameters like model, device
@@ -44,22 +45,30 @@ class CVDatasetPredictions():
         return mask_original_domain.to(self.device)
     
     def plot_segmentation(self, i):
-
+        # Getitng the predicted mask
         pred_mask = self.predict(i, **self.predict_kwargs).numpy()
+        # turning into 3-channel mask for colours when plotting\
         colour_pred = colorise_mask(pred_mask, VisualisationConstants.palette)
 
+        # getting the original image (not resized or anything)
         image =  self.dataset.original_image(i)
+        # if tensor, convert to numpy
         if isinstance(image, torch_.Tensor):
             image = image.numpy()
 
+        # getting the original mask
         original_mask = self.dataset.original_mask(i)
+        # tensor -> numpy
         if isinstance(original_mask, torch.Tensor):
             original_mask = original_mask.numpy()
 
+        # turning ground ttuth mask into 3-channel mask for plotting
         colour_ground_truth = colorise_mask(original_mask, VisualisationConstants.palette)
 
+        # overlay the image and pred mask
         overlay = blend_image_and_mask(image,colour_pred, image_weight=  0.6, mask_weight=0.4)
 
+        # plotting
         visualise_data(original_image = image,
                         ground_truth = colour_ground_truth,
                         predicted_mask = colour_pred,
@@ -68,27 +77,37 @@ class CVDatasetPredictions():
     
         
     def save_segmentation_plot(self, i, folder_prefix= "unet_plots"):
-        # Generate the segmentation plot (this will create and display the figure)
 
+        '''
+        function to save plots for the latex document, i-th image in the
+        test set.
+        '''
+        # pred mask
         pred_mask = self.predict(i, **self.predict_kwargs).numpy()
+        # 1 channel mask -> 3 channels
         colour_pred = colorise_mask(pred_mask, VisualisationConstants.palette)
 
+        # orginal image and make numpy
         image =  self.dataset.original_image(i)
         if isinstance(image, torch_.Tensor):
             image = image.numpy()
 
+        # original mask and make numpy
         original_mask = self.dataset.original_mask(i)
         if isinstance(original_mask, torch.Tensor):
             original_mask = original_mask.numpy()
 
+        # get 3 channel ground-truth
         colour_ground_truth = colorise_mask(original_mask, VisualisationConstants.palette)
-
+        
+        # overlay the image and the mask
         overlay = blend_image_and_mask(image,colour_pred, image_weight=  0.6, mask_weight=0.4)
 
+        # directory for where we want these images to be saved
         folder = f'segmentation_plots/{folder_prefix}_image_{i}/'
         os.makedirs(folder, exist_ok=True)
 
-
+        # save important images that we might want to use
         plt_.imsave(folder + 'overlay.png', overlay)
         plt_.imsave(folder + 'ground_truth.png', colour_ground_truth)
         plt_.imsave(folder + 'predicted_mask.png', colour_pred)
@@ -157,35 +176,23 @@ class CVDatasetPredictions():
         accuracy_metric.reset()
         return acc
 
-def inverse_resize_mask(mask, height, width):
-    """
-    function that resizes the predicted mask back
-    to the original dimensions
-    """
-    
-    # Inverse resize the predicted mask to original dimensions using nearest neighbor interpolation
-    mask_original_domain = TF.resize(mask, (height, width), interpolation=TF.InterpolationMode.NEAREST)
-    mask_original_domain = mask_original_domain.squeeze(0)  # remove batch dimension
 
-    return mask_original_domain
+
+
+
+
 
 
 def predict(image, model, device="cuda" if torch.cuda.is_available() else "cpu"):
     '''
-    Function that makes a predicted mask from the input image.
-
-    # Parameters
-        image: image of size (3, H, W)
-
-    # Returns
-        predicted mask of size (1, H, W)
+    Function that makes a predicted mask from the input image for UNET model and for 
+    the UNET point-based model.
     '''
     model.to(device)  # Ensure model is on the correct device
     model.eval()
     
     image = image.to(device)  # Move image to the same device as model
 
-    # pred_logits from resized image (3, H, W) -> (1, 3, H, W)
     with torch.no_grad():  # Disable gradients for inference
         pred_logits = model(image.unsqueeze(0))
         pred_mask = torch.argmax(pred_logits, dim=1)

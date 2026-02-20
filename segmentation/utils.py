@@ -55,7 +55,6 @@ class preprocessing():
         train_transform = [
             albu.RandomCrop(256, 416, pad_if_needed=True, border_mode=cv2.BORDER_REFLECT),
             albu.HorizontalFlip(p=0.5),
-            albu.Affine(translate_percent=(-0.05, 0.05),  scale=(0.95, 1.05), rotate=(-15, 15),p=0.2,border_mode=cv2.BORDER_REFLECT,fill_mask=255),
             albu.OneOf([
                     albu.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=1),
                     albu.CLAHE(p=1),
@@ -122,7 +121,7 @@ class model_utils():
         """
         Save the trained model along with metadata for experiment tracking.
         """
-        # **Step 1: Save model to file**
+        # save model to file
         torch.save(checkpoint, filename)
         print(f"=> Final model and metadata saved to {filename}")
         
@@ -140,15 +139,14 @@ class model_utils():
 
 
 class traininglog():
+    '''
+    append metrics etc to csv file 
+    useful while training model to track peformance
+    '''
     @staticmethod
     def log_training(log_filename, **kwargs):
         """
-        Logs arbitrary key-value pairs to a CSV file.
-        
-        Parameters:
-            log_filename (str): The path to the CSV log file.
-            **kwargs: Arbitrary key-value pairs to log.
-                    For example: epoch=1, val_iou=0.85, hyperparameters={'lr': 0.0001}
+        logs arbitrary key-value pairs to a csv file.
         """
         file_exists = os.path.isfile(log_filename)
         fieldnames = list(kwargs.keys())  # Determine fieldnames from kwargs
@@ -163,14 +161,6 @@ class traininglog():
 def create_heatmap(image_shape, point, sigma=15):
     """
     Create a Gaussian heatmap centered at the given point.
-
-    Args:
-    image_shape (tuple): Shape of the image (height, width).
-    point (tuple): Coordinates (x, y) of the prompt. Note: x is column index, y is row index.
-    sigma (float): Standard deviation controlling the spread of the heatmap.
-
-    Returns:
-    np.array: A heatmap of shape (height, width) with values in [0, 1].
     """
     
     height, width = image_shape
@@ -185,64 +175,3 @@ def create_heatmap(image_shape, point, sigma=15):
     return heatmap
 
 
-def random_xy(shape, sigma_ratio=0.2):
-    """
-    Sample a random (x, y) point from a 2D Gaussian distribution 
-    centered in the middle of the image.
-
-    :param height: Image height
-    :param width:  Image width
-    :param sigma_ratio: Fraction of the dimension used as std dev 
-                    (e.g., 0.2 means std dev = 20% of dimension)
-    :return: (x, y) coordinates within image bounds
-    """
-    height, width = shape
-    
-    # Mean at the center of the image
-    x_mean, y_mean = width / 2.0, height / 2.0
-    
-    # Standard deviation as a fraction of the dimension
-    x_sigma = sigma_ratio * width
-    y_sigma = sigma_ratio * height
-    
-    # Draw samples from the normal distribution
-    x = int(np.random.normal(x_mean, x_sigma))
-    y = int(np.random.normal(y_mean, y_sigma))
-    
-    # Clamp to valid image bounds
-    x = max(0, min(x, width - 1))
-    y = max(0, min(y, height - 1))
-    
-    return [x, y]
-
-def numpy_image_from(tensor_image):
-    """
-    Convert a tensor image (C, H, W) to a NumPy image (H, W, C) of type uint8.
-    
-    Assumes:
-      - The tensor is in the format (C, H, W)
-      - If the values are in [0, 1], they will be scaled to [0, 255].
-      
-    Parameters:
-      tensor_image (torch.Tensor): The input image.
-      
-    Returns:
-      np.ndarray: The image in (H, W, C) format with dtype uint8.
-    """
-
-    # If it's a torch tensor, bring it to CPU and detach it.
-    if isinstance(tensor_image, torch.Tensor):
-        np_img = tensor_image.cpu().detach().numpy()
-    else:
-        raise ValueError('Input image is not tensor')
-
-    # Convert from channel first to channel last
-    np_img = np.transpose(np_img, (1, 2, 0))
-    
-    # If the image values are in the range [0, 1], scale them to [0, 255]
-    if np_img.max() <= 1.0:
-        np_img = np_img * 255
-    
-    # Clip values and convert to uint8
-    np_img = np.clip(np_img, 0, 255).astype(np.uint8)
-    return np_img

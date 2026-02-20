@@ -2,6 +2,10 @@ import torch
 
 class IOU():
     def __init__(self, classes = [1, 2, 3]):
+        '''
+        custom object to calc the Intersection over Union
+        only considers classes specified
+        '''
         self.classes = classes
 
         self.intersection_class_dict = {index: 0 for index in classes}
